@@ -15,10 +15,10 @@ const app = express();
 const server = http.createServer(app);
 
 const sessionMiddleware = session({
-  secret: 'your-very-secret-key',
+  secret: process.env.SESSION_SECRET || 'your-very-secret-key',
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: false }, // set true if using HTTPS
+  cookie: { secure: false }, // keep false if not using HTTPS in dev
 });
 
 app.use(sessionMiddleware);
@@ -39,10 +39,6 @@ const asyncHandler = (fn) => (req, res, next) =>
 
 app.get('/', (req, res) => {
   res.send('LAN Chat Server is running');
-});
-
-app.get('/login', (req, res) => {
-  res.sendFile(__dirname + '/public/login.html');
 });
 
 // Register user route

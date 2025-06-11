@@ -1,5 +1,5 @@
-const socket = io('http://localhost:3000', {
-  autoConnect: false, // only connect after login, to get proper session
+const socket = io({
+  autoConnect: false,
 });
 
 const loginModal = document.getElementById('login-modal');
