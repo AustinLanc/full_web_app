@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Martin Chat</title>
+  <script src="/socket.io/socket.io.js"></script>
+    <script src="script.js"></script>
+  <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <!-- Chat Container (hidden initially) -->
+  <div id="chat-container" style="display:none;">
+    <div class="user-bar">
+      <span class="user-label">Logged in as: <strong id="username-display"></strong></span>
+      <button id="logout-btn">Logout</button>
+    </div>
+
+    <div class="room-controls">
+      <label for="room">Room:</label>
+      <select name="room" id="room">
+        <option value="General">General</option>
+        <option value="Lab">Lab</option>
+        <option value="Blending">Blending</option>
+        <option value="Production">Production</option>
+      </select>
+      <button id="join-room" type="button">Join Room</button>
+    </div>
+
+    <div id="messages"></div>
+
+    <input type="text" id="message-input" placeholder="Type your message..." />
+    <button id="send-btn" type="button">Send</button>
+  </div>
+
+  <!-- Login Modal -->
+  <div id="login-modal" class="modal-backdrop">
+    <div class="modal">
+      <h2>Login</h2>
+      <form id="login-form">
+        <input type="text" id="login-username" placeholder="Username" required autocomplete="username" />
+        <input type="password" id="login-password" placeholder="Password" required autocomplete="current-password" />
+        <button type="submit">Login</button>
+      </form>
+      <button type="button" class="link-button" onclick="showRegister()">New user? Register</button>
+      <p id="login-error"></p>
+    </div>
+  </div>
+
+  <!-- Register Modal -->
+  <div id="register-modal" class="modal-backdrop">
+    <div class="modal">
+      <h3>Register</h3>
+      <form id="register-form">
+        <input type="text" id="register-username" placeholder="Username" required autocomplete="username" />
+        <input type="password" id="register-password" placeholder="Password" required autocomplete="new-password" />
+        <button type="submit">Register</button>
+      </form>
+      <button type="button" class="link-button" onclick="hideRegister()">Cancel</button>
+      <p id="register-error"></p>
+    </div>
+  </div>
+
+  <footer style="text-align:center; margin-top: 30px; font-size: 0.9rem; color: #777;">
+    Developed by Austin Lancaster
+  </footer>
+</body>
+</html>

@@ -2,7 +2,10 @@ const express = require('express');
 const session = require('express-session');
 const http = require('http');
 const { Server } = require('socket.io');
-const knex = require('knex')(require('./knexfile').development);
+const knexConfig = require('./knexfile');
+const lab_DB = require('knex')(knexConfig.lab_DB);
+const chat_DB = require('knex')(knexConfig.chat_DB);
+const path = require('path');
 const {
   registerUser,
   loginUser,
@@ -18,30 +21,37 @@ const sessionMiddleware = session({
   secret: process.env.SESSION_SECRET || 'your-very-secret-key',
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: false }, // keep false if not using HTTPS in dev
+  cookie: { secure: false },
 });
 
 app.use(sessionMiddleware);
 app.use(express.json());
-app.use(express.static('public'));
+app.use('/chat', express.static(path.join(__dirname, 'public', 'chat')));
 
 const io = new Server(server, {
   cors: {
-    origin: '*', // restrict this to your frontend domain in production
+    origin: '*',
     methods: ['GET', 'POST'],
   },
 });
+
+// Share session between Express and Socket.IO
 io.use(sharedSession(sessionMiddleware, { autoSave: true }));
 
-// Async handler wrapper to catch errors
+// Async handler wrapper
 const asyncHandler = (fn) => (req, res, next) =>
   Promise.resolve(fn(req, res, next)).catch(next);
 
 app.get('/', (req, res) => {
-  res.send('LAN Chat Server is running');
+  res.redirect('/chat');
 });
 
-// Register user route
+app.get('/chat', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  // OR, if you don't have a chat.html:
+  // res.send('Chat interface is now at /chat');
+});
+
 app.post(
   '/register',
   asyncHandler(async (req, res) => {
@@ -51,7 +61,6 @@ app.post(
   })
 );
 
-// Login route
 app.post(
   '/login',
   asyncHandler(async (req, res) => {
@@ -62,7 +71,6 @@ app.post(
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Store minimal user info in session
     req.session.user = {
       id: user.id,
       username: user.username,
@@ -76,7 +84,6 @@ app.post(
   })
 );
 
-// Logout route
 app.post('/logout', (req, res) => {
   if (req.session) {
     req.session.destroy((err) => {
@@ -91,30 +98,28 @@ app.post('/logout', (req, res) => {
   }
 });
 
-// Clear messages in a room - admin only
 app.delete(
-  '/:room/clear',
+  '/chat/:room/clear',
   requireLogin,
   requireAdmin,
   asyncHandler(async (req, res) => {
     const { room } = req.params;
-    await knex('messages').where({ room }).del();
+    await chat_DB('messages').where({ room }).del();
     res.status(200).json({ message: `All messages from room '${room}' deleted.` });
   })
 );
 
-// Clear all messages - admin only
 app.delete(
-  '/clear',
+  '/chat/clear',
   requireLogin,
   requireAdmin,
   asyncHandler(async (req, res) => {
-    await knex('messages').del();
+    await chat_DB('messages').del();
     res.status(200).json({ message: 'All messages deleted.' });
   })
 );
 
-// Socket.IO auth middleware: require logged-in session user
+// Socket.IO auth middleware (optional, but recommended)
 io.use((socket, next) => {
   const session = socket.handshake.session;
   if (session && session.user) {
@@ -139,7 +144,7 @@ io.on('connection', (socket) => {
     const { id: sender_id, username: display_name } = socket.user;
     const timestamp = new Date();
 
-    await knex('messages').insert({
+    await chat_DB('messages').insert({
       room,
       sender: sender_id,
       display_name,
@@ -154,7 +159,7 @@ io.on('connection', (socket) => {
     const { id: sender_id, username: display_name } = socket.user;
     const timestamp = new Date();
 
-    await knex('messages').insert({
+    await chat_DB('messages').insert({
       recipientId,
       sender: sender_id,
       display_name,
@@ -172,7 +177,7 @@ io.on('connection', (socket) => {
 
   socket.on('get_history', async (room, callback) => {
     try {
-      const messages = await knex('messages')
+      const messages = await chat_DB('messages')
         .where({ room })
         .join('users', 'messages.sender', 'users.id')
         .select('messages.message', 'messages.timestamp', 'users.username as display_name')

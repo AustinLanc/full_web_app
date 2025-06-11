@@ -1,14 +1,22 @@
+require('dotenv').config();
+
 module.exports = {
-  development: {
+  lab_DB: {
     client: 'mysql2',
     connection: {
-      host: process.env.DB_HOST || 'localhost',
-      user: process.env.DB_USER || 'Martin',
-      password: process.env.DB_PASSWORD || 'Martin123',
-      database: process.env.DB_NAME || 'message_history',
-    },
-    migrations: {
-      directory: './migrations',
-    },
+      host: process.env.LABDB_HOST,
+      user: process.env.LABDB_USER,
+      password: process.env.LABDB_PASSWORD,
+      database: process.env.LABDB_DATABASE
+    }
   },
+  chat_DB: {
+    client: 'mysql2',
+    connection: {
+      host: process.env.CHATDB_HOST,
+      user: process.env.CHATDB_USER,
+      password: process.env.CHATDB_PASSWORD,
+      database: process.env.CHATDB_DATABASE
+    }
+  }
 };

@@ -1,11 +1,13 @@
 const bcrypt = require('bcrypt');
 const SALT_ROUNDS = 10;
-const knex = require('knex')(require('./knexfile').development);
+const knexConfig = require('./knexfile');
+const lab_DB = require('knex')(knexConfig.lab_DB);
+const chat_DB = require('knex')(knexConfig.chat_DB);
 
 async function registerUser(username, password) {
   const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
-  const inserted = await knex('users').insert({
+  const inserted = await chat_DB('users').insert({
     username,
     password: hashedPassword,
   });
@@ -16,7 +18,7 @@ async function registerUser(username, password) {
 }
 
 async function loginUser(username, inputPassword) {
-  const user = await knex('users').where({ username }).first();
+  const user = await chat_DB('users').where({ username }).first();
 
   if (!user) {
     throw new Error('User not found');
