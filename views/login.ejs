@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= typeof title !== 'undefined' ? title : '' %></title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <link href="/static/css/all.min.css" rel="stylesheet">
+    <link href="/static/icon.ico" rel="icon">
+</head>
+<body>
+    <nav class="navbar navbar-expand-md navbar-light bg-light border">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <img src="/static/logo.png" alt="Logo">
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <% if (typeof user_id !== 'undefined' && user_id) { %>
+                    <ul class="navbar-nav me-auto mt-2">
+                        <li class="nav-item"><a class="nav-link" href="/">Update</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/retains">Retains</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/qc">QC</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/testing">Testing</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/directory">Directory</a></li>
+                    </ul>
+                    <ul class="navbar-nav ms-auto mt-2">
+                        <% if (user_id == 1) { %>
+                            <li class="nav-item"><a class="nav-link" href="/admin">Admin</a></li>
+                        <% } else { %>
+                            <li class="nav-item"><a class="nav-link" href="/account">Account</a></li>
+                        <% } %>
+                        <li class="nav-item"><a class="nav-link" href="/logout">Log Out</a></li>
+                    </ul>
+                <% } else { %>
+                    <ul class="navbar-nav ms-auto mt-2">
+                        <li class="nav-item"><a class="nav-link" href="/login">Log In</a></li>
+                    </ul>
+                <% } %>
+            </div>
+        </div>
+    </nav>
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h2 class="text-center mb-0">Log In</h2>
+                    </div>
+                    <div class="card-body p-5">
+                        <form action="/login" method="post">
+                            <div class="mb-4">
+                                <label for="username" class="form-label">Username</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-user"></i></span>
+                                    <input type="text" class="form-control" id="username" name="username" placeholder="Enter your username" autocomplete="off" autofocus required>
+                                </div>
+                            </div>
+                            <div class="mb-4">
+                                <label for="password" class="form-label">Password</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                    <input type="password" class="form-control" id="password" name="password" placeholder="Enter your password" required>
+                                </div>
+                            </div>
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-sign-in-alt me-2"></i>Log In
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                <% if (typeof error !== 'undefined' && error) { %>
+                <div class="alert alert-danger mt-4" role="alert">
+                    <i class="fas fa-exclamation-circle me-2"></i><%= error %>
+                </div>
+                <% } %>
+            </div>
+        </div>
+    </div>
+    <script src="/static/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

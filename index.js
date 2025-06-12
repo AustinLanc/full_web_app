@@ -11,6 +11,7 @@ const {
   loginUser,
   requireLogin,
   requireAdmin,
+  checkLabUser
 } = require('./auth');
 const sharedSession = require('express-socket.io-session');
 
@@ -26,7 +27,11 @@ const sessionMiddleware = session({
 
 app.use(sessionMiddleware);
 app.use(express.json());
-app.use('/chat', express.static(path.join(__dirname, 'public', 'chat')));
+app.use('/static', express.static('static'));
+app.use('/chat', express.static(path.join(__dirname, 'views', 'chat')));
+
+app.set('views', './views');
+app.set('view engine', 'ejs');
 
 const io = new Server(server, {
   cors: {
@@ -43,13 +48,43 @@ const asyncHandler = (fn) => (req, res, next) =>
   Promise.resolve(fn(req, res, next)).catch(next);
 
 app.get('/', (req, res) => {
-  res.redirect('/chat');
+  res.render('index', { title: 'Hello', message: 'World' });
+});
+
+app.get('/retains', requireLogin, checkLabUser, (req, res) => {
+  // QUERY DB, GET ALL RETAINS IN DB, ORDER BY box, SUBSTRING(batch, 3, 4), SUBSTRING(batch, 1, 2)
+  res.render('/lab/retains.html', { retains: results });
+});
+
+app.get('/update', requireLogin, checkLabUser, (req, res) => {
+  if (req.method === 'POST') {
+    const { code_batch, date, box, action } = req.body;
+    let [code, batch] = code_batch.split(' ');
+    code = parseInt(code);
+    date = date || new Date().toISOString().slice(0, 10);
+    box = parseInt(box);
+
+    if (action === 'add') {
+      // USE KNEX TO ADD RETAIN TO DB
+    } else if (action === 'remove') {
+      // USE KNEX TO REMOVE RETAIN TO DB
+    }
+  }
+  return res.render('/lab/update.html');
+});
+
+app.get('/qc', requireLogin, checkLabUser, (req, res) => {
+  // QUERY TABLE TO GET ALL QC LOGS, ORDER BY SUBSTRING(q.batch, 3, 1) DESC, SUBSTRING(q.batch, 2, 1) DESC, SUBSTRING(q.batch, 4) DESC
+  res.render('/lab/qc.html', { qc: results });
+});
+
+app.get('/testing', requireLogin, (req, res) => {
+  // QUERY TABLE TO GET TESTING DATA, ORDER BY SUBSTRING(batch, 3, 1), SUBSTRING(batch, 2, 1), SUBSTRING(batch, 4), date DESC
+  res.render('testing.html', { testing: results });
 });
 
 app.get('/chat', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-  // OR, if you don't have a chat.html:
-  // res.send('Chat interface is now at /chat');
+  res.sendFile(path.join(__dirname, 'views', 'index.html'));
 });
 
 app.post(
@@ -60,6 +95,13 @@ app.post(
     res.status(201).json({ message: 'User registered', id });
   })
 );
+
+app.get('/login', (req, res) => {
+  res.render('login', {
+    title: 'Log In',
+    user_id: req.session.user_id,
+  });
+});
 
 app.post(
   '/login',

@@ -33,6 +33,15 @@ async function loginUser(username, inputPassword) {
   return user;
 }
 
+async function checkLabUser(username) {
+  const user = await lab_DB('users').where({ username }).first();
+
+  if (!user) {
+    throw new Error('Not a lab member');
+  }
+  return user;
+}
+
 function requireLogin(req, res, next) {
   if (!req.session.user) {
     return res.status(401).json({ error: 'Not logged in' });
@@ -40,16 +49,30 @@ function requireLogin(req, res, next) {
   next();
 }
 
-function requireAdmin(req, res, next) {
-  if (req.session?.user?.id === 1) {
-    return next();
+async function requireAdmin(req, res, next) {
+  const { username } = req.user || { username: req.username };
+  try {
+    const admin = await chat_DB('users')
+      .where({ username })
+      .select('is_admin')
+      .first();
+    if (!admin) {
+      return res.status(404).send('User not found');
+    }
+    if (!admin.is_admin) {
+      return res.status(403).send('Admin access required');
+    }
+    next();
+  } catch (err) {
+    res.status(500).send('Server error');
   }
-  res.status(403).json({ error: 'Admin access required' });
 }
+
 
 module.exports = {
   registerUser,
   loginUser,
   requireLogin,
   requireAdmin,
+  checkLabUser,
 };

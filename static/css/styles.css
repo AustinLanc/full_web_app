@@ -1,0 +1,64 @@
+.container {
+    position: relative;
+    top: 50%;
+    margin: auto;
+}
+
+input[type=text], select, input[type=number], input[type=search], input[type=password], input[type=date], button {
+    width: 100%;
+    padding: 12px 20px;
+    margin: 8px 0 8px 0;
+    display: inline-block;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+  }
+.btn {
+    margin-top: 16px; /* Adjust the value as needed */
+}
+
+h3 {
+    text-align: center;
+    padding: 20px 0;
+}
+
+.dropdown-list {
+    display: none;
+    list-style: none;
+    padding: 0;
+}
+
+.dropdown-list li {
+    cursor: pointer;
+}
+
+img {
+    display: block;
+    margin: auto;
+    height: 50px;
+}
+
+nav {
+    font-size: 1.2rem;
+}
+
+nav li, nav img {
+    padding: 0 10px;
+    font-weight: 900;
+    color: black;
+}
+
+.deleteButton {
+    width: auto;
+    border: none;
+    margin-left: auto; /* Push the button to the right */
+}
+
+
+
+
+.deleteButton:hover {
+    background-color: red;
+    color: white;
+}
+

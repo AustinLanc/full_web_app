@@ -1,0 +1,187 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Admin Panel
+{% endblock %}
+
+{% block main %}
+<div class="container mt-5">
+    <div class="card-header bg-primary text-white">
+        <h3 class="text-center mb-0">User Management</h3>
+    </div>
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="row mb-3 align-items-center">
+                <div class="col-md-8">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        <input type="text" id="userSearch" class="form-control" onkeyup="filterUserTable()" placeholder="Search by username...">
+                    </div>
+                </div>
+                <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                    <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#createUserModal">
+                        <i class="fas fa-user-plus me-2"></i>Create New User
+                    </button>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle" id="userTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Username</th>
+                            <th>Status</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td>{{ user[1] }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if user[3] == 1 else 'danger' }}">
+                                    {{ "Active" if user[3] == 1 else "Inactive" }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="d-flex justify-content-center">
+                                    <form action="/admin/toggle_user_status" method="post" class="me-2">
+                                        <input type="hidden" name="user_id" value="{{ user[0] }}">
+                                        <button type="submit" class="btn btn-sm {{ 'btn-outline-danger' if user[3] == 1 else 'btn-outline-success' }}" title="{{ 'Deactivate' if user[3] == 1 else 'Activate' }} User">
+                                            <i class="fas fa-{{ 'user-slash' if user[3] == 1 else 'user-check' }}"></i>
+                                        </button>
+                                    </form>
+                                    <button type="button" class="btn btn-sm btn-outline-primary me-2" data-bs-toggle="modal" data-bs-target="#changePasswordModal{{ user[0] }}" title="Change Password">
+                                        <i class="fas fa-key"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteUserModal{{ user[0] }}" title="Delete User">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- Create User Modal -->
+<div class="modal fade" id="createUserModal" tabindex="-1" aria-labelledby="createUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createUserModalLabel">Create New User</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form action="/admin/create_user" method="post">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Username:</label>
+                        <input type="text" class="form-control" id="username" name="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password:</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Create User</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% for user in users %}
+<div class="modal fade" id="changePasswordModal{{ user[0] }}" tabindex="-1" aria-labelledby="changePasswordModalLabel{{ user[0] }}" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="changePasswordModalLabel{{ user[0] }}">Change Password for {{ user[1] }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form action="/admin/change_password" method="post">
+                    <input type="hidden" name="user_id" value="{{ user[0] }}">
+                    <div class="mb-3">
+                        <label for="new_password{{ user[0] }}" class="form-label">New Password:</label>
+                        <input type="password" class="form-control" id="new_password{{ user[0] }}" name="new_password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="confirm_password{{ user[0] }}" class="form-label">Confirm New Password:</label>
+                        <input type="password" class="form-control" id="confirm_password{{ user[0] }}" name="confirm_password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Change Password</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="deleteUserModal{{ user[0] }}" tabindex="-1" aria-labelledby="deleteUserModalLabel{{ user[0] }}" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteUserModalLabel{{ user[0] }}">Confirm Delete User</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete the user "{{ user[1] }}"? This action cannot be undone.
+            </div>
+            <div class="modal-footer">
+                <div class="container-fluid p-0">
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <button type="button" class="btn btn-secondary w-100" data-bs-dismiss="modal">Cancel</button>
+                        </div>
+                        <div class="col-6">
+                            <form action="/admin/delete_user" method="post" class="m-0">
+                                <input type="hidden" name="user_id" value="{{ user[0] }}">
+                                <button type="submit" class="btn btn-danger w-100">Delete User</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>            
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<script>
+function filterUserTable() {
+    var input, filter, table, tr, td, i, txtValue;
+    input = document.getElementById("userSearch");
+    filter = input.value.toUpperCase();
+    table = document.getElementById("userTable");
+    tr = table.getElementsByTagName("tr");
+
+    for (i = 0; i < tr.length; i++) {
+        td = tr[i].getElementsByTagName("td")[0];
+        if (td) {
+            txtValue = td.textContent || td.innerText;
+            if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                tr[i].style.display = "";
+            } else {
+                tr[i].style.display = "none";
+            }
+        }
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    var forms = document.querySelectorAll('form[action="/admin/change_password"]');
+    forms.forEach(function(form) {
+        form.addEventListener('submit', function(event) {
+            var newPassword = form.querySelector('input[name="new_password"]').value;
+            var confirmPassword = form.querySelector('input[name="confirm_password"]').value;
+            if (newPassword !== confirmPassword) {
+                event.preventDefault();
+                alert('Passwords do not match!');
+            }
+        });
+    });
+});
+
+</script>
+{% endblock %}

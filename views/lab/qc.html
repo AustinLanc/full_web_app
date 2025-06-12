@@ -1,0 +1,97 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    QC Logs
+{% endblock %}
+
+{% block main %}
+<div class="container mt-5">
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h3 class="mb-0 text-center">QC Logs</h3>
+        </div>
+        <div class="card-body">
+            <div class="row mb-4 align-items-center">
+                <div class="col-md-8 mb-3 mb-md-0">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        <input type="text" id="search" class="form-control" onkeyup="filterTable()" placeholder="Search by Product Code or Batch Number...">
+                    </div>
+                </div>
+            </div>
+            <div class="table-responsive" style="height: 60vh; overflow-y: auto;">
+                <table class="table table-hover align-middle" id="qcTable">
+                    <thead class="table-light sticky-top">
+                        <tr>
+                            <th>Batch Number</th>
+                            <th>Product Code</th>
+                            <th>Product Name</th>
+                            <th>Suffix</th>
+                            <th>Worked Pen</th>
+                            <th>Drop Point</th>
+                            <th>Date Released</th>
+                            <th>Released By</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in qc %}
+                            {% if 300000 < row[1]|int < 900000 %}
+                                <tr>
+                                    {# <td>
+                                        <a href="{{ url_for('serve_pdf') }}?product_code={{ row[1] }}&name={{ row[2] }}&batch_number={{ row[0][:6] }}&year={{ row[6][-4:] }}" target="_blank">
+                                            {{ row[0] }}
+                                        </a>
+                                    </td> #}
+                                    <td>{{ row[0] }}</td>
+                                    <td>{{ row[1] }}</td>
+                                    <td>{{ row[2] }}</td>
+                                    <td>{{ row[3] }}</td>
+                                    <td>{{ row[4] }}</td>
+                                    <td>{{ row[5] }}</td>
+                                    <td>{{ row[6] }}</td>
+                                    <td>{{ row[7] }}</td>
+                                </tr>
+                            {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    @media (max-width: 767px) {
+        .table-responsive {
+            font-size: 0.9rem;
+        }
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.8rem;
+        }
+    }
+</style>
+
+<script>
+    function filterTable() {
+        const input = document.getElementById("search");
+        const filter = input.value.toUpperCase();
+        const table = document.getElementById("qcTable");
+        const tr = table.getElementsByTagName("tr");
+
+        for (let i = 1; i < tr.length; i++) { // Start from 1 to skip the header row
+            const tdCode = tr[i].getElementsByTagName("td")[1];
+            const tdBatch = tr[i].getElementsByTagName("td")[0];
+            if (tdCode || tdBatch) {
+                const txtValueCode = tdCode.textContent || tdCode.innerText;
+                const txtValueBatch = tdBatch.textContent || tdBatch.innerText;
+                if (txtValueCode.toUpperCase().indexOf(filter) > -1 || txtValueBatch.toUpperCase().indexOf(filter) > -1) {
+                    tr[i].style.display = "";
+                } else {
+                    tr[i].style.display = "none";
+                }
+            }
+        }
+    }
+</script>
+{% endblock %}
