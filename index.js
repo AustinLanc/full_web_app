@@ -27,6 +27,7 @@ const sessionMiddleware = session({
 
 app.use(sessionMiddleware);
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use('/static', express.static('static'));
 app.use('/chat', express.static(path.join(__dirname, 'views', 'chat')));
 
@@ -48,7 +49,21 @@ const asyncHandler = (fn) => (req, res, next) =>
   Promise.resolve(fn(req, res, next)).catch(next);
 
 app.get('/', (req, res) => {
-  res.render('index', { title: 'Hello', message: 'World' });
+  if (!req.session.user) {
+    return res.redirect('/login'); // Redirect instead of render for login page
+  }
+  if (checkLabUser(req,session.username)) {
+    return res.render('lab/update', {
+      user_id: req.session.user.id,
+      username: req.session.user.username,
+      labUser: true
+    });
+  }
+  return res.render('chat/index', {
+    user_id: req.session.user.id,
+    username: req.session.user.username,
+    labUser: false
+  });
 });
 
 app.get('/retains', requireLogin, checkLabUser, (req, res) => {
@@ -89,6 +104,8 @@ app.get('/chat', (req, res) => {
 
 app.post(
   '/register',
+  requireLogin,
+  requireAdmin,
   asyncHandler(async (req, res) => {
     const { username, password } = req.body;
     const id = await registerUser(username, password);
@@ -99,7 +116,6 @@ app.post(
 app.get('/login', (req, res) => {
   res.render('login', {
     title: 'Log In',
-    user_id: req.session.user_id,
   });
 });
 
@@ -110,34 +126,24 @@ app.post(
     const user = await loginUser(username, password);
 
     if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).render('login', { title: 'Log In', error: 'Invalid credentials' });
     }
 
     req.session.user = {
       id: user.id,
       username: user.username,
+      isAdmin: user.is_Admin,
     };
 
-    res.json({
-      message: 'Login successful',
-      userId: user.id,
-      username: user.username,
-    });
+    res.redirect('/');
   })
 );
 
-app.post('/logout', (req, res) => {
-  if (req.session) {
-    req.session.destroy((err) => {
-      if (err) {
-        return res.status(500).json({ error: 'Failed to logout' });
-      }
-      res.clearCookie('connect.sid');
-      res.json({ message: 'Logged out successfully' });
-    });
-  } else {
-    res.status(200).json({ message: 'No session to destroy' });
-  }
+app.get('/logout', (req, res) => {
+  req.session.destroy(() => {
+    res.clearCookie('connect.sid');
+    res.redirect('/login');
+  });
 });
 
 app.delete(

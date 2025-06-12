@@ -35,11 +35,10 @@ async function loginUser(username, inputPassword) {
 
 async function checkLabUser(username) {
   const user = await lab_DB('users').where({ username }).first();
-
   if (!user) {
-    throw new Error('Not a lab member');
+    return false;
   }
-  return user;
+  return true;
 }
 
 function requireLogin(req, res, next) {
