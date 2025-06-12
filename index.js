@@ -48,11 +48,12 @@ io.use(sharedSession(sessionMiddleware, { autoSave: true }));
 const asyncHandler = (fn) => (req, res, next) =>
   Promise.resolve(fn(req, res, next)).catch(next);
 
-app.get('/', (req, res) => {
+app.get('/', async (req, res) => {
   if (!req.session.user) {
-    return res.redirect('/login'); // Redirect instead of render for login page
+    return res.redirect('/login');
   }
-  if (checkLabUser(req,session.username)) {
+  const isLabUser = await checkLabUser(req.session.user.username);
+  if (isLabUser) {
     return res.render('lab/update', {
       user_id: req.session.user.id,
       username: req.session.user.username,
@@ -66,26 +67,29 @@ app.get('/', (req, res) => {
   });
 });
 
+
 app.get('/retains', requireLogin, checkLabUser, (req, res) => {
   // QUERY DB, GET ALL RETAINS IN DB, ORDER BY box, SUBSTRING(batch, 3, 4), SUBSTRING(batch, 1, 2)
-  res.render('/lab/retains.html', { retains: results });
+  res.render('lab/retains', { retains: results });
 });
 
 app.get('/update', requireLogin, checkLabUser, (req, res) => {
-  if (req.method === 'POST') {
-    const { code_batch, date, box, action } = req.body;
-    let [code, batch] = code_batch.split(' ');
-    code = parseInt(code);
-    date = date || new Date().toISOString().slice(0, 10);
-    box = parseInt(box);
+  return res.render('lab/update');
+});
 
-    if (action === 'add') {
-      // USE KNEX TO ADD RETAIN TO DB
-    } else if (action === 'remove') {
-      // USE KNEX TO REMOVE RETAIN TO DB
-    }
+app.post('/update', requireLogin, checkLabUser, (req, res) => {
+  let { code_batch, date, box, action } = req.body;
+  let [code, batch] = code_batch.split(' ');
+  code = parseInt(code);
+  date = date || new Date().toISOString().slice(0, 10);
+  box = parseInt(box);
+
+  if (action === 'add') {
+    // USE KNEX TO ADD RETAIN TO DB
+  } else if (action === 'remove') {
+    // USE KNEX TO REMOVE RETAIN FROM DB
   }
-  return res.render('/lab/update.html');
+  res.redirect('/update');
 });
 
 app.get('/qc', requireLogin, checkLabUser, (req, res) => {
@@ -99,7 +103,16 @@ app.get('/testing', requireLogin, (req, res) => {
 });
 
 app.get('/chat', (req, res) => {
-  res.sendFile(path.join(__dirname, 'views', 'index.html'));
+  console.log(req.session)
+  
+  if (!req.session.user) {
+    return res.redirect('/login');
+  }
+  return res.render('chat/index', {
+    user_id: req.session.user.id,
+    username: req.session.user.username,
+    labUser: false
+  });
 });
 
 app.post(
@@ -139,10 +152,10 @@ app.post(
   })
 );
 
-app.get('/logout', (req, res) => {
+app.post('/logout', (req, res) => {
   req.session.destroy(() => {
     res.clearCookie('connect.sid');
-    res.redirect('/login');
+    res.status(200).json({ message: 'Logged out' });
   });
 });
 
