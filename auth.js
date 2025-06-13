@@ -33,12 +33,25 @@ async function loginUser(username, inputPassword) {
   return user;
 }
 
-async function checkLabUser(username) {
-  const user = await lab_DB('users').where({ username }).first();
-  if (!user) {
-    return false;
+function requireLabUser(req, res, next) {
+  // Make sure the user is logged in and username is available
+  if (!req.session.user || !req.session.user.username) {
+    return res.status(401).json({ error: 'Not logged in' });
   }
-  return true;
+
+  lab_DB('users')
+    .where({ username: req.session.user.username })
+    .first()
+    .then(user => {
+      if (!user) {
+        return res.status(403).json({ error: 'Forbidden: Not a lab user' });
+      }
+      next();
+    })
+    .catch(err => {
+      console.error(err);
+      res.status(500).json({ error: 'Database error' });
+    });
 }
 
 function requireLogin(req, res, next) {
@@ -67,11 +80,18 @@ async function requireAdmin(req, res, next) {
   }
 }
 
+async function isLabUser(username) {
+  const user = await lab_DB('users').where({ username }).first();
+  return !!user;
+}
+
+
 
 module.exports = {
   registerUser,
   loginUser,
   requireLogin,
   requireAdmin,
-  checkLabUser,
+  requireLabUser,
+  isLabUser
 };

@@ -1,48 +1,35 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Martin Chat</title>
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="script.js"></script>
-  <script>
-    const currentUser = {
-      id: <%= user_id %>,
-      username: "<%= username %>"
-    };
-  </script>
-  <link rel="stylesheet" href="style.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
-</head>
-<body>
-  <!-- Chat Container (hidden initially) -->
-  <div id="chat-container" style="display:none;">
-    <div class="user-bar">
-      <span class="user-label">Logged in as: <strong id="username-display"></strong></span>
-      <button id="logout-btn">Logout</button>
-    </div>
+<% layout('layout') %>
 
-    <div class="room-controls">
-      <label for="room">Room:</label>
-      <select name="room" id="room">
-        <option value="General">General</option>
-        <option value="Lab">Lab</option>
-        <option value="Blending">Blending</option>
-        <option value="Production">Production</option>
-      </select>
-      <button id="join-room" type="button">Join Room</button>
-    </div>
-
-    <div id="messages"></div>
-
-    <input type="text" id="message-input" placeholder="Type your message..." />
-    <button id="send-btn" type="button">Send</button>
+<div id="chat-container" style="display:none;">
+  <div class="user-bar">
+    <span class="user-label">Logged in as: <strong id="username-display"></strong></span>
+    <button id="logout-btn">Logout</button>
   </div>
 
+  <div class="room-controls">
+    <label for="room">Room:</label>
+    <select name="room" id="room">
+      <option value="General">General</option>
+      <option value="Lab">Lab</option>
+      <option value="Blending">Blending</option>
+      <option value="Production">Production</option>
+    </select>
+    <button id="join-room" type="button">Join Room</button>
+  </div>
 
-  <footer style="text-align:center; margin-top: 30px; font-size: 0.9rem; color: #777;">
-    Developed by Austin Lancaster
-  </footer>
-</body>
-</html>
+  <div id="messages"></div>
+
+  <input type="text" id="message-input" placeholder="Type your message..." />
+  <button id="send-btn" type="button">Send</button>
+</div>
+<script src="/socket.io/socket.io.js"></script>
+<script src="script.js"></script>
+<script>
+  const currentUser = {
+    id: <%= user_id %>,
+    username: "<%= username %>"
+  };
+</script>
+<link rel="stylesheet" href="style.css" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+

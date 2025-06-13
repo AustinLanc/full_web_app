@@ -1,10 +1,5 @@
-{% extends "layout.html" %}
+<% layout('layout') %>
 
-{% block title %}
-    Retains
-{% endblock %}
-
-{% block main %}
 <div class="container mt-5">
     <div class="card shadow-sm">
         <div class="card-header bg-primary text-white">
@@ -18,13 +13,13 @@
                         <input type="text" id="search" class="form-control" onkeyup="filterTable()" placeholder="Search by Product Code or Batch Number...">
                     </div>
                 </div>
-                {% if session.get('user_id') == 1 %}
+                <% if (user_id == 1) { %>
                     <div class="col-md-4 text-md-end">
                         <button class="btn btn-danger w-100" type="button" data-bs-toggle="modal" data-bs-target="#deleteBoxModal">
                             <i class="fas fa-trash-alt me-2"></i>Delete Box
                         </button>
                     </div>
-                {% endif %}
+                <% } %>
             </div>
             <div class="table-responsive" style="height: 60vh; overflow-y: auto;">
                 <table class="table table-hover align-middle" id="inventoryTable">
@@ -35,40 +30,35 @@
                             <th>Batch Number</th>
                             <th>Date Released</th>
                             <th>Box Number</th>
-                            {% if session.get('user_id') == 1 %}
+                            <% if (user_id == 1) { %>
                                 <th class="text-center">Action</th>
-                            {% endif %}
+                            <% } %>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for retain in retains %}
+                        <% for (let retain of retains) { %>
                             <tr>
-                                <td>{{ retain[0] }}</td>
-                                <td>{{ retain[4] }}</td>
-                                {# <td>
-                                    <a href="{{ url_for('serve_pdf') }}?product_code={{ retain[0] }}&name={{ retain[4] }}&batch_number={{ retain[1][:6] }}&year={{ retain[2].year }}" target="_blank">
-                                      {{ retain[1] }}
-                                    </a>
-                                </td> #}
-                                <td>{{ retain[1] }}</td>
-                                <td>{{ retain[2] }}</td>
-                                <td>{{ retain[3] }}</td>
-                                {% if session.get('user_id') == 1 %}
+                                <td><%= retain.code %></td>
+                                <td><%= retain.name %></td>
+                                <td><%= retain.batch %></td>
+                                <td><%= retain.formattedDate %></td>
+                                <td><%= retain.box %></td>
+                                <% if (user_id === 1) { %>
                                     <td class="text-center">
                                         <button class="btn btn-outline-danger btn-sm deleteButton" title="Delete">
                                             <i class="fas fa-trash-alt"></i>
                                         </button>
                                     </td>
-                                {% endif %}
+                                <% } %>
                             </tr>
-                        {% endfor %}
+                        <% } %>
+
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
 </div>
-
 
 <div class="modal fade" id="deleteBoxModal" tabindex="-1" aria-labelledby="deleteBoxModalLabel" aria-hidden="true">
     <div class="modal-dialog">
@@ -228,5 +218,3 @@
     });
 
 </script>
-
-{% endblock %}

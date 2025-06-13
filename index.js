@@ -11,7 +11,8 @@ const {
   loginUser,
   requireLogin,
   requireAdmin,
-  checkLabUser
+  requireLabUser,
+  isLabUser
 } = require('./auth');
 const sharedSession = require('express-socket.io-session');
 
@@ -32,6 +33,8 @@ app.use('/static', express.static('static'));
 app.use('/chat', express.static(path.join(__dirname, 'views', 'chat')));
 
 app.set('views', './views');
+const engine = require('ejs-mate');
+app.engine('ejs', engine);
 app.set('view engine', 'ejs');
 
 const io = new Server(server, {
@@ -52,79 +55,142 @@ app.get('/', async (req, res) => {
   if (!req.session.user) {
     return res.redirect('/login');
   }
-  const isLabUser = await checkLabUser(req.session.user.username);
-  if (isLabUser) {
-    return res.render('lab/update', {
-      user_id: req.session.user.id,
-      username: req.session.user.username,
-      labUser: true
-    });
+  let labUser = false;
+  try {
+    labUser = await isLabUser(req.session.user.username);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).send('Database error');
   }
-  return res.render('chat/index', {
+  if (labUser) {
+    return res.redirect('/update');
+  }
+  return res.redirect('/chat');
+});
+
+
+app.get('/retains', requireLogin, requireLabUser, async (req, res) => {
+  const results = await lab_DB('retains')
+    .join('names', 'retains.code', 'names.code')
+    .select('retains.*', 'names.name')
+    .orderByRaw('box, SUBSTRING(batch, 3, 4), SUBSTRING(batch, 1, 2)');
+  const formattedResults = results.map(retain => {
+    const d = new Date(retain.date);
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    return {
+      ...retain,
+      formattedDate: `${mm}/${dd}/${yyyy}`
+    };
+  });
+  res.render('lab/retains', {
     user_id: req.session.user.id,
     username: req.session.user.username,
-    labUser: false
+    labUser: true,
+    retains: formattedResults 
   });
 });
 
-
-app.get('/retains', requireLogin, checkLabUser, (req, res) => {
-  // QUERY DB, GET ALL RETAINS IN DB, ORDER BY box, SUBSTRING(batch, 3, 4), SUBSTRING(batch, 1, 2)
-  res.render('lab/retains', { retains: results });
+app.get('/update', requireLogin, requireLabUser, async (req, res) => {
+  return res.render('lab/update', {
+    user_id: req.session.user.id,
+    username: req.session.user.username,
+    labUser: true
+  });
 });
 
-app.get('/update', requireLogin, checkLabUser, (req, res) => {
-  return res.render('lab/update');
-});
-
-app.post('/update', requireLogin, checkLabUser, (req, res) => {
+app.post('/update', requireLogin, requireLabUser, async (req, res) => {
   let { code_batch, date, box, action } = req.body;
   let [code, batch] = code_batch.split(' ');
   code = parseInt(code);
   date = date || new Date().toISOString().slice(0, 10);
   box = parseInt(box);
 
-  if (action === 'add') {
-    // USE KNEX TO ADD RETAIN TO DB
-  } else if (action === 'remove') {
-    // USE KNEX TO REMOVE RETAIN FROM DB
+  try {
+    if (action === 'add') {
+      await lab_DB('retains').insert({
+        code: code,
+        batch: batch,
+        date: date,
+        box: box
+      });
+    } else if (action === 'remove') {
+      await lab_DB('retains')
+        .where({ code, batch, box })
+        .first()
+        .del();
+    }
+    res.redirect('/update');
+  } catch (e) {
+    console.error(e);
+    res.status(500).send('Database error');
   }
-  res.redirect('/update');
 });
 
-app.get('/qc', requireLogin, checkLabUser, (req, res) => {
-  // QUERY TABLE TO GET ALL QC LOGS, ORDER BY SUBSTRING(q.batch, 3, 1) DESC, SUBSTRING(q.batch, 2, 1) DESC, SUBSTRING(q.batch, 4) DESC
-  res.render('/lab/qc.html', { qc: results });
+app.get('/qc', requireLogin, requireLabUser, async (req, res) => {
+    const results = await lab_DB('qc')
+    .join('names', 'qc.code', 'names.code')
+    .select('qc.*', 'names.name')
+    .orderByRaw('SUBSTRING(batch, 3, 1) DESC, SUBSTRING(batch, 2, 1) DESC, SUBSTRING(batch, 4) DESC');
+  res.render('lab/qc', {
+    user_id: req.session.user.id,
+    username: req.session.user.username,
+    labUser: true,
+    qc: results 
+  });
 });
 
-app.get('/testing', requireLogin, (req, res) => {
-  // QUERY TABLE TO GET TESTING DATA, ORDER BY SUBSTRING(batch, 3, 1), SUBSTRING(batch, 2, 1), SUBSTRING(batch, 4), date DESC
-  res.render('testing.html', { testing: results });
+app.get('/testing', requireLogin, requireLabUser, async (req, res) => {
+  const results = await lab_DB('testing_data')
+    .join('names', 'testing_data.code', 'names.code')
+    .select('testing_data.*', 'names.name')
+    .orderByRaw('SUBSTRING(batch, 3, 1), SUBSTRING(batch, 2, 1), SUBSTRING(batch, 4), date DESC');
+  const formattedTesting = results.map(test => {
+    const d = new Date(test.date);
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    return {
+      ...test,
+      formattedDate: `${mm}/${dd}/${yyyy}`
+    };
+  });
+  res.render('lab/testing', {
+    user_id: req.session.user.id,
+    username: req.session.user.username,
+    labUser: true,
+    testing: formattedTesting
+  });
+});
+
+app.get('/directory', (req, res) => {
+  if (!req.session.user) {
+    return res.redirect('/login');
+  }
+  return res.render('lab/directory', {
+    user_id: req.session.user.id,
+    username: req.session.user.username,
+    labUser: true
+  });
 });
 
 app.get('/chat', (req, res) => {
-  console.log(req.session)
-  
   if (!req.session.user) {
     return res.redirect('/login');
   }
   return res.render('chat/index', {
     user_id: req.session.user.id,
     username: req.session.user.username,
-    labUser: false
+    labUser: isLabUser(req.session.user.userame)
   });
 });
 
-app.post(
-  '/register',
-  requireLogin,
-  requireAdmin,
-  asyncHandler(async (req, res) => {
-    const { username, password } = req.body;
-    const id = await registerUser(username, password);
-    res.status(201).json({ message: 'User registered', id });
-  })
-);
+app.post('/register', requireLogin, requireAdmin, asyncHandler(async (req, res) => {
+  const { username, password } = req.body;
+  const id = await registerUser(username, password);
+  res.status(201).json({ message: 'User registered', id });
+}));
 
 app.get('/login', (req, res) => {
   res.render('login', {
@@ -132,25 +198,22 @@ app.get('/login', (req, res) => {
   });
 });
 
-app.post(
-  '/login',
-  asyncHandler(async (req, res) => {
-    const { username, password } = req.body;
-    const user = await loginUser(username, password);
+app.post('/login', asyncHandler(async (req, res) => {
+  const { username, password } = req.body;
+  const user = await loginUser(username, password);
 
-    if (!user) {
-      return res.status(401).render('login', { title: 'Log In', error: 'Invalid credentials' });
-    }
+  if (!user) {
+    return res.status(401).render('login', { title: 'Log In', error: 'Invalid credentials' });
+  }
 
-    req.session.user = {
-      id: user.id,
-      username: user.username,
-      isAdmin: user.is_Admin,
-    };
+  req.session.user = {
+    id: user.id,
+    username: user.username,
+    isAdmin: user.is_Admin,
+  };
 
-    res.redirect('/');
-  })
-);
+  res.redirect('/');
+}));
 
 app.post('/logout', (req, res) => {
   req.session.destroy(() => {
@@ -159,26 +222,16 @@ app.post('/logout', (req, res) => {
   });
 });
 
-app.delete(
-  '/chat/:room/clear',
-  requireLogin,
-  requireAdmin,
-  asyncHandler(async (req, res) => {
-    const { room } = req.params;
-    await chat_DB('messages').where({ room }).del();
-    res.status(200).json({ message: `All messages from room '${room}' deleted.` });
-  })
-);
+app.delete('/chat/:room/clear', requireLogin, requireAdmin, asyncHandler(async (req, res) => {
+  const { room } = req.params;
+  await chat_DB('messages').where({ room }).del();
+  res.status(200).json({ message: `All messages from room '${room}' deleted.` });
+}));
 
-app.delete(
-  '/chat/clear',
-  requireLogin,
-  requireAdmin,
-  asyncHandler(async (req, res) => {
-    await chat_DB('messages').del();
-    res.status(200).json({ message: 'All messages deleted.' });
-  })
-);
+app.delete('/chat/clear', requireLogin, requireAdmin, asyncHandler(async (req, res) => {
+  await chat_DB('messages').del();
+  res.status(200).json({ message: 'All messages deleted.' });
+}));
 
 // Socket.IO auth middleware (optional, but recommended)
 io.use((socket, next) => {
@@ -192,9 +245,6 @@ io.use((socket, next) => {
 });
 
 io.on('connection', (socket) => {
-  console.log(`User connected: ${socket.user.username} (${socket.id})`);
-  console.log('Session data:', socket.handshake.session);
-
   socket.on('join_room', (room) => {
     if (!socket.user) return;
     socket.join(room);

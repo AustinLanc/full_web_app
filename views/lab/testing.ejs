@@ -1,10 +1,5 @@
-{% extends "layout.html" %}
+<% layout('layout') %>
 
-{% block title %}
-    Testing Data
-{% endblock %}
-
-{% block main %}
 <div class="container mt-5">
     <div class="card shadow-sm">
         <div class="card-header bg-primary text-white">
@@ -69,52 +64,59 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for row in testing %}
-                            {% set batch_number = row[0] %}
-                            {% if batch_number != 'N/A' and batch_number != '' and not batch_number[0].isdigit() and batch_number[0].lower() != 'r' and batch_number[0].lower() != 't' and batch_number|length >= 6 %}
+                        <% for (let row of testing) { %>
+                            <%
+                                const batch_number = row.batch;
+                                const firstChar = batch_number && batch_number.length > 0 ? batch_number[0] : '';
+                                const isNotDigit = firstChar ? isNaN(parseInt(firstChar, 10)) : true;
+                                const lowerChar = firstChar.toLowerCase ? firstChar.toLowerCase() : '';
+                            %>
+                            <% if (
+                            batch_number !== 'N/A' &&
+                            batch_number !== '' &&
+                            isNotDigit &&
+                            lowerChar !== 'r' &&
+                            lowerChar !== 't' &&
+                            batch_number.length >= 6
+                            ) { %>
                                 <tr>
-                                    {# <td>
-                                        <a href="{{ url_for('serve_pdf') }}?product_code={{ row[1] }}&name={{ row[2] }}&batch_number={{ row[0][:6] }}&year={{ row[3].year }}" target="_blank">
-                                            {{ row[0] }}
-                                        </a>
-                                    </td> #}
-                                    <td>{{ row[0] }}</td>
-                                    <td>{{ row[1] }}</td>
-                                    <td>{{ row[2] }}</td>
-                                    <td>{{ row[3] }}</td>
-                                    <td>{{ row[4] }}</td>
-                                    <td>{{ row[5] }}</td>
-                                    <td>{{ row[6] }}</td>
-                                    <td>{{ row[7] }}</td>
-                                    <td>{{ row[8] }}</td>
-                                    <td>{{ row[9] }}</td>
-                                    <td>{{ row[10] }}</td>
-                                    <td>{{ row[11] }}</td>
-                                    <td>{{ row[12] }}</td>
-                                    <td>{{ row[13] }}</td>
-                                    <td>{{ row[14] }}</td>
-                                    <td>{{ row[15] }}</td>
-                                    <td>{{ row[16] }}</td>
-                                    <td>{{ row[17] }}</td>
-                                    <td>{{ row[18] }}</td>
-                                    <td>{{ row[19] }}</td>
-                                    <td>{{ row[20] }}</td>
-                                    <td>{{ row[21] }}</td>
-                                    <td>{{ row[22] }}</td>
-                                    <td>{{ row[23] }}</td>
-                                    <td>{{ row[24] }}</td>
-                                    <td>{{ row[25] }}</td>
-                                    <td>{{ row[26] }}</td>
+                                    <td><%= row.batch %></td>
+                                    <td><%= row.code %></td>
+                                    <td><%= row.name %></td>
+                                    <td><%= row.formattedDate %></td>
+                                    <td><%= row.pen_0x %></td>
+                                    <td><%= row.pen_60x %></td>
+                                    <td><%= row.pen_10k %></td>
+                                    <td><%= row.pen_100k %></td>
+                                    <td><%= row.drop_point %></td>
+                                    <td><%= row.weld %></td>
+                                    <td><%= row.wear %></td>
+                                    <td><%= row.timken %></td>
+                                    <td><%= row.rust %></td>
+                                    <td><%= row.copper_corrosion %></td>
+                                    <td><%= row.oxidation %></td>
+                                    <td><%= row.oil_bleed %></td>
+                                    <td><%= row.spray_off %></td>
+                                    <td><%= row.washout %></td>
+                                    <td><%= row.pressure_bleed %></td>
+                                    <td><%= row.roll_stability_dry %></td>
+                                    <td><%= row.roll_stability_wet %></td>
+                                    <td><%= row.ft_ir %></td>
+                                    <td><%= row.minitest_minus_40 %></td>
+                                    <td><%= row.minitest_minus_30 %></td>
+                                    <td><%= row.minitest_minus_20 %></td>
+                                    <td><%= row.minitest_0 %></td>
+                                    <td><%= row.minitest_20 %></td>
                                     <td>
-                                        {% if row[27] != " " %}
-                                            {{ row[27] }} ({{ row[28] }} °C)
-                                        {% else %}
-                                            {{ row[27] }}
-                                        {% endif %}
+                                        <% if (row.rheometer != " " ) { %>
+                                            <%= row.rheometer %> (<%= row.rheometer_temp %> °C)
+                                        <% } else { %>
+                                            <%= row.rheometer %>
+                                        <% } %>
                                     </td>
                                 </tr>
-                            {% endif %}
-                        {% endfor %}
+                            <% } %>
+                        <% } %>
                     </tbody>                    
                 </table>
             </div>
