@@ -182,7 +182,7 @@ app.get('/chat', (req, res) => {
   return res.render('chat/index', {
     user_id: req.session.user.id,
     username: req.session.user.username,
-    labUser: isLabUser(req.session.user.userame)
+    labUser: isLabUser(req.session.user.username)
   });
 });
 
