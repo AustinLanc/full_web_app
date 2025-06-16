@@ -42,17 +42,18 @@ function loadChatHistory(room, callback) {
 window.onload = () => {
   const chatContainer = document.getElementById('chat-container');
   const logoutBtn = document.getElementById('logout-btn');
+  const confirmLogoutBtn = document.getElementById('confirmLogoutBtn');
   const messagesDiv = document.getElementById('messages');
   const roomInput = document.getElementById('room');
   const usernameDisplay = document.getElementById('username-display');
   const messageInput = document.getElementById('message-input');
   const sendBtn = document.getElementById('send-btn');
   const joinRoomBtn = document.getElementById('join-room');
-  
+
   showChatUI();
 
-  if (logoutBtn) {
-    logoutBtn.onclick = () => {
+  if (confirmLogoutBtn) {
+    confirmLogoutBtn.onclick = () => {
       fetch('/logout', { method: 'POST' })
         .finally(() => {
           window.location.href = '/login'; // or '/'

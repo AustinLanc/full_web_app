@@ -1,55 +1,161 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><%= typeof title !== 'undefined' ? title : '' %></title>
-    <link rel="stylesheet" href="/static/css/styles.css">
-    <link href="/static/css/bootstrap.min.css" rel="stylesheet">
-    <link href="/static/css/all.min.css" rel="stylesheet">
-    <link href="/static/icon.ico" rel="icon">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= typeof title !== 'undefined' ? title : '' %></title>
+
+  <!-- Local styles -->
+  <link rel="stylesheet" href="/static/css/styles.css" />
+  <link href="/static/css/all.min.css" rel="stylesheet" />
+
+  <!-- Bootstrap 5 from CDN -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+    crossorigin="anonymous"
+  />
+  <link href="/static/icon.ico" rel="icon" />
 </head>
 <body>
-    <nav class="navbar navbar-expand-md navbar-light bg-light border">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="/">
-                <img src="/static/logo.png" alt="Logo">
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <% if (typeof user_id !== 'undefined' && user_id) { %>
-                    <ul class="navbar-nav me-auto mt-2">
-                        <% if (labUser) { %>
-                            <li class="nav-item"><a class="nav-link" href="/">Update</a></li>
-                            <li class="nav-item"><a class="nav-link" href="/retains">Retains</a></li>
-                            <li class="nav-item"><a class="nav-link" href="/qc">QC</a></li>
-                            <li class="nav-item"><a class="nav-link" href="/testing">Testing</a></li>
-                            <li class="nav-item"><a class="nav-link" href="/directory">Directory</a></li>
-                        <% } %>
-                        <li class="nav-item"><a class="nav-link" href="/chat">Chat</a></li>
-                    </ul>
-                    <ul class="navbar-nav ms-auto mt-2">
-                        <% if (user_id == 1) { %>
-                            <li class="nav-item"><a class="nav-link" href="/admin">Admin</a></li>
-                        <% } else { %>
-                            <li class="nav-item"><a class="nav-link" href="/account">Account</a></li>
-                        <% } %>
-                        <li class="nav-item"><a class="nav-link" href="/logout">Log Out</a></li>
-                    </ul>
-                <% } else { %>
-                    <ul class="navbar-nav ms-auto mt-2">
-                        <li class="nav-item"><a class="nav-link" href="/login">Log In</a></li>
-                    </ul>
-                <% } %>
-            </div>
+  <nav class="navbar navbar-expand-md navbar-light bg-light border">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="/">
+        <img src="/static/logo.png" alt="Logo" />
+      </a>
+      <button
+        class="navbar-toggler"
+        type="button"
+        data-bs-toggle="collapse"
+        data-bs-target="#navbarNav"
+        aria-controls="navbarNav"
+        aria-expanded="false"
+        aria-label="Toggle navigation"
+      >
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <% if (typeof user_id !== 'undefined' && user_id) { %>
+          <ul class="navbar-nav me-auto mt-2">
+            <% if (is_lab) { %>
+              <li class="nav-item"><a class="nav-link" href="/update">Update</a></li>
+              <li class="nav-item"><a class="nav-link" href="/retains">Retains</a></li>
+              <li class="nav-item"><a class="nav-link" href="/qc">QC</a></li>
+              <li class="nav-item"><a class="nav-link" href="/testing">Testing</a></li>
+              <li class="nav-item"><a class="nav-link" href="/directory">Directory</a></li>
+            <% } %>
+            <li class="nav-item"><a class="nav-link" href="/chat">Chat</a></li>
+          </ul>
+          <ul class="navbar-nav ms-auto mt-2">
+            <% if (is_admin) { %>
+              <li class="nav-item"><a class="nav-link" href="/admin">Admin</a></li>
+            <% } else { %>
+              <li class="nav-item"><a class="nav-link" href="/account">Account</a></li>
+            <% } %>
+            <li class="nav-item">
+              <button
+                type="button"
+                class="nav-link"
+                style="cursor:pointer;"
+                id="logout-btn"
+                data-bs-toggle="modal"
+                data-bs-target="#logoutModal"
+              >
+                Logout
+              </button>
+            </li>
+          </ul>
+        <% } else { %>
+          <ul class="navbar-nav ms-auto mt-2">
+            <li class="nav-item"><a class="nav-link" href="/login">Log In</a></li>
+          </ul>
+        <% } %>
+      </div>
+    </div>
+  </nav>
+
+  <%- typeof body !== 'undefined' ? body : '' %>
+
+  <div class="modal" id="logoutModal" tabindex="-1" aria-labelledby="logoutModalLabel">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="logoutModalLabel">Confirm Logout</h5>
+          <button
+            type="button"
+            class="btn-close"
+            data-bs-dismiss="modal"
+            aria-label="Close"
+          ></button>
         </div>
-    </nav>
-    <%- typeof body !== 'undefined' ? body : '' %>
-    <script src="/static/js/bootstrap.bundle.min.js"></script>
-</body>
-<footer style="text-align:center; margin-top: 30px; font-size: 0.9rem; color: #777;">
+        <div class="modal-body">Are you sure you want to logout?</div>
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            data-bs-dismiss="modal"
+          >
+            Cancel
+          </button>
+          <button
+            id="confirmLogoutBtn"
+            type="button"
+            class="btn btn-danger"
+          >
+            Logout
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap 5 Bundle with Popper (from CDN) -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+    crossorigin="anonymous"
+  ></script>
+
+  <!-- Logout Modal JavaScript -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const logoutBtn = document.getElementById('logout-btn');
+      const confirmLogoutBtn = document.getElementById('confirmLogoutBtn');
+      const logoutModalEl = document.getElementById('logoutModal');
+
+      if (!logoutBtn || !confirmLogoutBtn || !logoutModalEl) return;
+
+      // Initialize Bootstrap modal
+      const logoutModal = new bootstrap.Modal(logoutModalEl);
+
+      // Show modal on logout button click
+      logoutBtn.addEventListener('click', () => {
+        logoutModal.show();
+      });
+
+      // Confirm logout
+      confirmLogoutBtn.addEventListener('click', () => {
+        fetch('/logout', { method: 'POST' })
+          .then(() => {
+            window.location.href = '/login';
+          })
+          .catch((err) => {
+            console.error('Logout failed:', err);
+          });
+      });
+
+      // Prevent focus warning
+      logoutModalEl.addEventListener('hide.bs.modal', () => {
+        if (logoutModalEl.contains(document.activeElement)) {
+          document.activeElement.blur();
+        }
+      });
+    });
+  </script>
+
+  <footer
+    style="text-align:center; margin-top: 30px; font-size: 0.9rem; color: #777;"
+  >
     Developed by Austin Lancaster
   </footer>
+</body>
 </html>

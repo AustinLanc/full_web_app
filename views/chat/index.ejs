@@ -3,11 +3,9 @@
 <div id="chat-container" style="display:none;">
   <div class="user-bar">
     <span class="user-label">Logged in as: <strong id="username-display"></strong></span>
-    <button id="logout-btn">Logout</button>
   </div>
 
   <div class="room-controls">
-    <label for="room">Room:</label>
     <select name="room" id="room">
       <option value="General">General</option>
       <option value="Lab">Lab</option>
@@ -23,13 +21,10 @@
   <button id="send-btn" type="button">Send</button>
 </div>
 <script src="/socket.io/socket.io.js"></script>
-<script src="script.js"></script>
+<script src="/static/js/script.js"></script>
 <script>
   const currentUser = {
     id: <%= user_id %>,
     username: "<%= username %>"
   };
 </script>
-<link rel="stylesheet" href="style.css" />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
-

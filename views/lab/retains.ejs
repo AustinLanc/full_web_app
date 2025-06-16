@@ -115,14 +115,23 @@
         table.addEventListener('click', function(event) {
             if (event.target && event.target.classList.contains('deleteButton')) {
                 const row = event.target.closest('tr');
+                const code = row.cells[0].innerText;
                 const box = row.cells[4].innerText;
                 const batch = row.cells[2].innerText;
                 const date = row.cells[3].innerText;
+                
+                const [month, day, year] = date.split('/');
+                const isoDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+                
+                const data = { 
+                    code: code,
+                    box: box, 
+                    batch: batch, 
+                    date: isoDate,
+                    action: 'deleteRow'
+                };
 
-                const url = '/delete';
-                const data = { box: box, batch: batch, date: date };
-
-                fetch(url, {
+                fetch('/update', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -191,10 +200,12 @@
             confirmationModal.hide();
 
             const box = boxNumber;
-            const url = '/deletebox';
-            const data = { box: box };
+            const data = { 
+                action: 'deleteBox',
+                 box: box 
+            };
 
-            fetch(url, {
+            fetch('/update', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'

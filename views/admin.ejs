@@ -1,10 +1,5 @@
-{% extends "layout.html" %}
+<% layout('layout') %>
 
-{% block title %}
-    Admin Panel
-{% endblock %}
-
-{% block main %}
 <div class="container mt-5">
     <div class="card-header bg-primary text-white">
         <h3 class="text-center mb-0">User Management</h3>
@@ -34,39 +29,38 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for user in users %}
+                        <% for (let user of users) { %>
                         <tr>
-                            <td>{{ user[1] }}</td>
+                            <td><%= user.username %></td>
                             <td>
-                                <span class="badge bg-{{ 'success' if user[3] == 1 else 'danger' }}">
-                                    {{ "Active" if user[3] == 1 else "Inactive" }}
+                                <span class="badge bg-<%= user.active === 1 ? 'success' : 'danger' %>">
+                                    <%= user.active === 1 ? "Active" : "Inactive" %>
                                 </span>
                             </td>
                             <td>
                                 <div class="d-flex justify-content-center">
                                     <form action="/admin/toggle_user_status" method="post" class="me-2">
-                                        <input type="hidden" name="user_id" value="{{ user[0] }}">
-                                        <button type="submit" class="btn btn-sm {{ 'btn-outline-danger' if user[3] == 1 else 'btn-outline-success' }}" title="{{ 'Deactivate' if user[3] == 1 else 'Activate' }} User">
-                                            <i class="fas fa-{{ 'user-slash' if user[3] == 1 else 'user-check' }}"></i>
+                                        <input type="hidden" name="user_id" value="<%= user.id %>">
+                                        <button type="submit" class="btn btn-sm <%= user.active === 1 ? 'btn-outline-danger' : 'btn-outline-success' %>" title="<%= user.active === 1 ? 'Deactivate' : 'Activate' %> User">
+                                            <i class="fas fa-<%= user.active === 1 ? 'user-slash' : 'user-check' %>"></i>
                                         </button>
                                     </form>
-                                    <button type="button" class="btn btn-sm btn-outline-primary me-2" data-bs-toggle="modal" data-bs-target="#changePasswordModal{{ user[0] }}" title="Change Password">
+                                    <button type="button" class="btn btn-sm btn-outline-primary me-2" data-bs-toggle="modal" data-bs-target="#changePasswordModal<%= user.id %>" title="Change Password">
                                         <i class="fas fa-key"></i>
                                     </button>
-                                    <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteUserModal{{ user[0] }}" title="Delete User">
+                                    <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteUserModal<%= user.id %>" title="Delete User">
                                         <i class="fas fa-trash-alt"></i>
                                     </button>
                                 </div>
                             </td>
                         </tr>
-                        {% endfor %}
+                        <% } %>
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
 </div>
-
 
 <!-- Create User Modal -->
 <div class="modal fade" id="createUserModal" tabindex="-1" aria-labelledby="createUserModalLabel" aria-hidden="true">
@@ -77,7 +71,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <form action="/admin/create_user" method="post">
+                <form action="/register" method="post">
                     <div class="mb-3">
                         <label for="username" class="form-label">Username:</label>
                         <input type="text" class="form-control" id="username" name="username" required>
@@ -86,6 +80,10 @@
                         <label for="password" class="form-label">Password:</label>
                         <input type="password" class="form-control" id="password" name="password" required>
                     </div>
+                    <div class="mb-3 d-flex justify-content-between align-items-center">
+                        <label class="form-label mb-0" for="isLabUser">Lab User</label>
+                        <input type="checkbox" class="form-check-input ms-2" id="isLabUser" name="isLabUser" value="1">
+                    </div>
                     <button type="submit" class="btn btn-primary">Create User</button>
                 </form>
             </div>
@@ -93,24 +91,25 @@
     </div>
 </div>
 
-{% for user in users %}
-<div class="modal fade" id="changePasswordModal{{ user[0] }}" tabindex="-1" aria-labelledby="changePasswordModalLabel{{ user[0] }}" aria-hidden="true">
+<% for (let user of users) { %>
+<!-- Change Password Modal -->
+<div class="modal fade" id="changePasswordModal<%= user.id %>" tabindex="-1" aria-labelledby="changePasswordModalLabel<%= user.id %>" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="changePasswordModalLabel{{ user[0] }}">Change Password for {{ user[1] }}</h5>
+                <h5 class="modal-title" id="changePasswordModalLabel<%= user.id %>">Change Password for <%= user.username %></h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <form action="/admin/change_password" method="post">
-                    <input type="hidden" name="user_id" value="{{ user[0] }}">
+                    <input type="hidden" name="user_id" value="<%= user.id %>">
                     <div class="mb-3">
-                        <label for="new_password{{ user[0] }}" class="form-label">New Password:</label>
-                        <input type="password" class="form-control" id="new_password{{ user[0] }}" name="new_password" required>
+                        <label for="new_password<%= user.id %>" class="form-label">New Password:</label>
+                        <input type="password" class="form-control" id="new_password<%= user.id %>" name="new_password" required>
                     </div>
                     <div class="mb-3">
-                        <label for="confirm_password{{ user[0] }}" class="form-label">Confirm New Password:</label>
-                        <input type="password" class="form-control" id="confirm_password{{ user[0] }}" name="confirm_password" required>
+                        <label for="confirm_password<%= user.id %>" class="form-label">Confirm New Password:</label>
+                        <input type="password" class="form-control" id="confirm_password<%= user.id %>" name="confirm_password" required>
                     </div>
                     <button type="submit" class="btn btn-primary">Change Password</button>
                 </form>
@@ -118,15 +117,17 @@
         </div>
     </div>
 </div>
-<div class="modal fade" id="deleteUserModal{{ user[0] }}" tabindex="-1" aria-labelledby="deleteUserModalLabel{{ user[0] }}" aria-hidden="true">
+
+<!-- Delete User Modal -->
+<div class="modal fade" id="deleteUserModal<%= user.id %>" tabindex="-1" aria-labelledby="deleteUserModalLabel<%= user.id %>" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="deleteUserModalLabel{{ user[0] }}">Confirm Delete User</h5>
+                <h5 class="modal-title" id="deleteUserModalLabel<%= user.id %>">Confirm Delete User</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                Are you sure you want to delete the user "{{ user[1] }}"? This action cannot be undone.
+                Are you sure you want to delete the user "<%= user.username %>"? This action cannot be undone.
             </div>
             <div class="modal-footer">
                 <div class="container-fluid p-0">
@@ -136,7 +137,7 @@
                         </div>
                         <div class="col-6">
                             <form action="/admin/delete_user" method="post" class="m-0">
-                                <input type="hidden" name="user_id" value="{{ user[0] }}">
+                                <input type="hidden" name="user_id" value="<%= user.id %>">
                                 <button type="submit" class="btn btn-danger w-100">Delete User</button>
                             </form>
                         </div>
@@ -146,25 +147,20 @@
         </div>
     </div>
 </div>
-{% endfor %}
+<% } %>
 
 <script>
 function filterUserTable() {
-    var input, filter, table, tr, td, i, txtValue;
-    input = document.getElementById("userSearch");
-    filter = input.value.toUpperCase();
-    table = document.getElementById("userTable");
-    tr = table.getElementsByTagName("tr");
+    var input = document.getElementById("userSearch");
+    var filter = input.value.toUpperCase();
+    var table = document.getElementById("userTable");
+    var tr = table.getElementsByTagName("tr");
 
-    for (i = 0; i < tr.length; i++) {
-        td = tr[i].getElementsByTagName("td")[0];
+    for (var i = 0; i < tr.length; i++) {
+        var td = tr[i].getElementsByTagName("td")[0];
         if (td) {
-            txtValue = td.textContent || td.innerText;
-            if (txtValue.toUpperCase().indexOf(filter) > -1) {
-                tr[i].style.display = "";
-            } else {
-                tr[i].style.display = "none";
-            }
+            var txtValue = td.textContent || td.innerText;
+            tr[i].style.display = txtValue.toUpperCase().includes(filter) ? "" : "none";
         }
     }
 }
@@ -182,6 +178,4 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
-
 </script>
-{% endblock %}

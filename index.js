@@ -5,6 +5,7 @@ const { Server } = require('socket.io');
 const knexConfig = require('./knexfile');
 const lab_DB = require('knex')(knexConfig.lab_DB);
 const chat_DB = require('knex')(knexConfig.chat_DB);
+const user_DB = require('knex')(knexConfig.user_DB);
 const path = require('path');
 const {
   registerUser,
@@ -12,7 +13,7 @@ const {
   requireLogin,
   requireAdmin,
   requireLabUser,
-  isLabUser
+  updatePassword,
 } = require('./auth');
 const sharedSession = require('express-socket.io-session');
 
@@ -32,6 +33,21 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/static', express.static('static'));
 app.use('/chat', express.static(path.join(__dirname, 'views', 'chat')));
 
+app.use((req, res, next) => {
+  if (req.session && req.session.user) {
+    res.locals.user_id = req.session.user.id;
+    res.locals.username = req.session.user.username;
+    res.locals.is_lab = req.session.user.is_lab;
+    res.locals.is_admin = req.session.user.is_admin;
+  } else {
+    res.locals.user_id = null;
+    res.locals.username = null;
+    res.locals.is_lab = false;
+    res.locals.is_admin = false;
+  }
+  next();
+});
+
 app.set('views', './views');
 const engine = require('ejs-mate');
 app.engine('ejs', engine);
@@ -44,176 +60,229 @@ const io = new Server(server, {
   },
 });
 
-// Share session between Express and Socket.IO
 io.use(sharedSession(sessionMiddleware, { autoSave: true }));
 
-// Async handler wrapper
 const asyncHandler = (fn) => (req, res, next) =>
   Promise.resolve(fn(req, res, next)).catch(next);
 
-app.get('/', async (req, res) => {
-  if (!req.session.user) {
-    return res.redirect('/login');
-  }
-  let labUser = false;
-  try {
-    labUser = await isLabUser(req.session.user.username);
-  } catch (err) {
-    console.error(err);
-    return res.status(500).send('Database error');
-  }
-  if (labUser) {
-    return res.redirect('/update');
-  }
-  return res.redirect('/chat');
-});
+app.get(
+  '/',
+  asyncHandler(async (req, res) => {
+    if (!req.session.user) return res.redirect('/login');
 
+    if (req.session.user.is_lab) return res.redirect('/update');
+    return res.redirect('/chat');
+  })
+);
 
-app.get('/retains', requireLogin, requireLabUser, async (req, res) => {
-  const results = await lab_DB('retains')
-    .join('names', 'retains.code', 'names.code')
-    .select('retains.*', 'names.name')
-    .orderByRaw('box, SUBSTRING(batch, 3, 4), SUBSTRING(batch, 1, 2)');
-  const formattedResults = results.map(retain => {
-    const d = new Date(retain.date);
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    const yyyy = d.getFullYear();
-    return {
-      ...retain,
-      formattedDate: `${mm}/${dd}/${yyyy}`
-    };
-  });
-  res.render('lab/retains', {
-    user_id: req.session.user.id,
-    username: req.session.user.username,
-    labUser: true,
-    retains: formattedResults 
-  });
-});
+app.get(
+  '/retains',
+  requireLogin,
+  requireLabUser,
+  asyncHandler(async (req, res) => {
+    const results = await lab_DB('retains')
+      .join('names', 'retains.code', 'names.code')
+      .select('retains.*', 'names.name')
+      .orderByRaw('box, SUBSTRING(batch, 3, 4), SUBSTRING(batch, 1, 2)');
 
-app.get('/update', requireLogin, requireLabUser, async (req, res) => {
-  return res.render('lab/update', {
-    user_id: req.session.user.id,
-    username: req.session.user.username,
-    labUser: true
-  });
-});
+    const formattedResults = results.map((retain) => {
+      const d = new Date(retain.date);
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      return {
+        ...retain,
+        formattedDate: `${mm}/${dd}/${yyyy}`,
+      };
+    });
 
-app.post('/update', requireLogin, requireLabUser, async (req, res) => {
-  let { code_batch, date, box, action } = req.body;
-  let [code, batch] = code_batch.split(' ');
-  code = parseInt(code);
-  date = date || new Date().toISOString().slice(0, 10);
-  box = parseInt(box);
+    res.render('lab/retains', {
+      retains: formattedResults,
+    });
+  })
+);
 
-  try {
+app.get(
+  '/update',
+  requireLogin,
+  requireLabUser,
+  asyncHandler(async (req, res) => {
+    res.render('lab/update');
+  })
+);
+
+app.post(
+  '/update',
+  requireLogin,
+  requireLabUser,
+  asyncHandler(async (req, res) => {
+    const { code_batch, date, box, action } = req.body;
+
+    if (action === 'deleteBox') {
+      await lab_DB('retains').where({ box: parseInt(box) }).del();
+      return res.sendStatus(200);
+    }
+
+    if (!code_batch) {
+      return res.status(400).send('Missing code_batch');
+    }
+
+    const [codeStr, batch] = code_batch.split(' ');
+    const code = parseInt(codeStr);
+    const finalDate = date || new Date().toISOString().slice(0, 10);
+    const finalBox = parseInt(box);
+
     if (action === 'add') {
-      await lab_DB('retains').insert({
-        code: code,
-        batch: batch,
-        date: date,
-        box: box
-      });
+      await lab_DB('retains').insert({ code, batch, date: finalDate, box: finalBox });
     } else if (action === 'remove') {
       await lab_DB('retains')
-        .where({ code, batch, box })
+        .where({ code, batch, box: finalBox })
         .first()
         .del();
     }
+
+    if (action === 'deleteRow') {
+      await lab_DB('retains')
+        .where({ code: parseInt(code), batch: batch, box: parseInt(box), date: date}).del();
+      return res.sendStatus(200);
+    }
+
     res.redirect('/update');
-  } catch (e) {
-    console.error(e);
-    res.status(500).send('Database error');
-  }
-});
+  })
+);
 
-app.get('/qc', requireLogin, requireLabUser, async (req, res) => {
+app.get(
+  '/qc',
+  requireLogin,
+  requireLabUser,
+  asyncHandler(async (req, res) => {
     const results = await lab_DB('qc')
-    .join('names', 'qc.code', 'names.code')
-    .select('qc.*', 'names.name')
-    .orderByRaw('SUBSTRING(batch, 3, 1) DESC, SUBSTRING(batch, 2, 1) DESC, SUBSTRING(batch, 4) DESC');
-  res.render('lab/qc', {
-    user_id: req.session.user.id,
-    username: req.session.user.username,
-    labUser: true,
-    qc: results 
-  });
-});
+      .join('names', 'qc.code', 'names.code')
+      .select('qc.*', 'names.name')
+      .orderByRaw(
+        'SUBSTRING(batch, 3, 1) DESC, SUBSTRING(batch, 2, 1) DESC, SUBSTRING(batch, 4) DESC'
+      );
 
-app.get('/testing', requireLogin, requireLabUser, async (req, res) => {
-  const results = await lab_DB('testing_data')
-    .join('names', 'testing_data.code', 'names.code')
-    .select('testing_data.*', 'names.name')
-    .orderByRaw('SUBSTRING(batch, 3, 1), SUBSTRING(batch, 2, 1), SUBSTRING(batch, 4), date DESC');
-  const formattedTesting = results.map(test => {
-    const d = new Date(test.date);
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    const yyyy = d.getFullYear();
-    return {
-      ...test,
-      formattedDate: `${mm}/${dd}/${yyyy}`
-    };
-  });
-  res.render('lab/testing', {
-    user_id: req.session.user.id,
-    username: req.session.user.username,
-    labUser: true,
-    testing: formattedTesting
-  });
-});
+    res.render('lab/qc', {
+      qc: results,
+    });
+  })
+);
+
+app.get(
+  '/testing',
+  requireLogin,
+  requireLabUser,
+  asyncHandler(async (req, res) => {
+    const results = await lab_DB('testing_data')
+      .join('names', 'testing_data.code', 'names.code')
+      .select('testing_data.*', 'names.name')
+      .orderByRaw('SUBSTRING(batch, 3, 1), SUBSTRING(batch, 2, 1), SUBSTRING(batch, 4), date DESC');
+
+    const formattedTesting = results.map((test) => {
+      const d = new Date(test.date);
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      return {
+        ...test,
+        formattedDate: `${mm}/${dd}/${yyyy}`,
+      };
+    });
+
+    res.render('lab/testing', {
+      testing: formattedTesting,
+    });
+  })
+);
 
 app.get('/directory', (req, res) => {
-  if (!req.session.user) {
-    return res.redirect('/login');
-  }
-  return res.render('lab/directory', {
-    user_id: req.session.user.id,
-    username: req.session.user.username,
-    labUser: true
-  });
+  if (!req.session.user) return res.redirect('/login');
+
+  res.render('lab/directory');
 });
 
-app.get('/chat', (req, res) => {
-  if (!req.session.user) {
-    return res.redirect('/login');
-  }
-  return res.render('chat/index', {
-    user_id: req.session.user.id,
-    username: req.session.user.username,
-    labUser: isLabUser(req.session.user.username)
-  });
-});
+app.get(
+  '/chat',
+  asyncHandler(async (req, res) => {
+    if (!req.session.user) return res.redirect('/login');
 
-app.post('/register', requireLogin, requireAdmin, asyncHandler(async (req, res) => {
-  const { username, password } = req.body;
-  const id = await registerUser(username, password);
-  res.status(201).json({ message: 'User registered', id });
-}));
+    res.render('chat/index');
+  })
+);
+
+app.get(
+  '/admin',
+  requireLogin,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const users = await user_DB('users').select('*');
+
+    res.render('admin', {
+      users: users
+    });
+  })
+);
+
+app.get(
+  '/account',
+  requireLogin,
+  asyncHandler(async (req, res) => {
+    res.render('account', {
+      error: null,
+      success: null
+    });
+  })
+);
+
+app.post(
+  '/account',
+  requireLogin,
+  asyncHandler(async (req, res) => {
+    const { username, current_password, new_password} = req.body;
+    
+  })
+);
+
+app.post(
+  '/register',
+  requireLogin,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const { username, password, isLabUser } = req.body;
+    const id = await registerUser(username, password, isLabUser);
+    res.status(201).json({ message: 'User registered', id });
+  })
+);
 
 app.get('/login', (req, res) => {
-  res.render('login', {
-    title: 'Log In',
-  });
+  res.render('login', { title: 'Log In' });
 });
 
-app.post('/login', asyncHandler(async (req, res) => {
-  const { username, password } = req.body;
-  const user = await loginUser(username, password);
+app.post(
+  '/login',
+  asyncHandler(async (req, res) => {
+    const { username, password } = req.body;
+    const user = await loginUser(username, password);
 
-  if (!user) {
-    return res.status(401).render('login', { title: 'Log In', error: 'Invalid credentials' });
-  }
+    if (!user) {
+      return res.status(401).render('login', {
+        title: 'Log In',
+        error: 'Invalid credentials',
+      });
+    }
 
-  req.session.user = {
-    id: user.id,
-    username: user.username,
-    isAdmin: user.is_Admin,
-  };
+    req.session.user = {
+      id: user.id,
+      username: user.username,
+      is_admin: user.is_admin,
+      is_lab: user.is_lab,
+      active: user.active
+    };
 
-  res.redirect('/');
-}));
+    res.redirect('/');
+  })
+);
 
 app.post('/logout', (req, res) => {
   req.session.destroy(() => {
@@ -222,18 +291,28 @@ app.post('/logout', (req, res) => {
   });
 });
 
-app.delete('/chat/:room/clear', requireLogin, requireAdmin, asyncHandler(async (req, res) => {
-  const { room } = req.params;
-  await chat_DB('messages').where({ room }).del();
-  res.status(200).json({ message: `All messages from room '${room}' deleted.` });
-}));
+app.delete(
+  '/chat/:room/clear',
+  requireLogin,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const { room } = req.params;
+    await chat_DB('messages').where({ room }).del();
+    res.status(200).json({ message: `All messages from room '${room}' deleted.` });
+  })
+);
 
-app.delete('/chat/clear', requireLogin, requireAdmin, asyncHandler(async (req, res) => {
-  await chat_DB('messages').del();
-  res.status(200).json({ message: 'All messages deleted.' });
-}));
+app.delete(
+  '/chat/clear',
+  requireLogin,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    await chat_DB('messages').del();
+    res.status(200).json({ message: 'All messages deleted.' });
+  })
+);
 
-// Socket.IO auth middleware (optional, but recommended)
+// Socket.IO auth middleware
 io.use((socket, next) => {
   const session = socket.handshake.session;
   if (session && session.user) {
@@ -290,9 +369,8 @@ io.on('connection', (socket) => {
     try {
       const messages = await chat_DB('messages')
         .where({ room })
-        .join('users', 'messages.sender', 'users.id')
-        .select('messages.message', 'messages.timestamp', 'users.username as display_name')
-        .orderBy('messages.timestamp', 'asc');
+        .select('message', 'timestamp', 'display_name')
+        .orderBy('timestamp', 'asc');
 
       callback(messages);
     } catch (error) {
