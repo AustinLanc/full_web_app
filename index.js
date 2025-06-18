@@ -14,6 +14,9 @@ const {
   requireAdmin,
   requireLabUser,
   updatePassword,
+  adminResetUserPassword,
+  deleteUser,
+  toggleUser,
 } = require('./auth');
 const sharedSession = require('express-socket.io-session');
 
@@ -98,6 +101,7 @@ app.get(
 
     res.render('lab/retains', {
       retains: formattedResults,
+      title: 'Retains'
     });
   })
 );
@@ -107,7 +111,7 @@ app.get(
   requireLogin,
   requireLabUser,
   asyncHandler(async (req, res) => {
-    res.render('lab/update');
+    res.render('lab/update', { title: 'Update' });
   })
 );
 
@@ -120,11 +124,11 @@ app.post(
 
     if (action === 'deleteBox') {
       await lab_DB('retains').where({ box: parseInt(box) }).del();
-      return res.sendStatus(200);
+      res.redirect('/retains');
     }
 
     if (!code_batch) {
-      return res.status(400).send('Missing code_batch');
+      res.redirect('/update');
     }
 
     const [codeStr, batch] = code_batch.split(' ');
@@ -144,7 +148,7 @@ app.post(
     if (action === 'deleteRow') {
       await lab_DB('retains')
         .where({ code: parseInt(code), batch: batch, box: parseInt(box), date: date}).del();
-      return res.sendStatus(200);
+      res.redirect('/retains');
     }
 
     res.redirect('/update');
@@ -165,12 +169,13 @@ app.get(
 
     res.render('lab/qc', {
       qc: results,
+      title: 'QC Logs'
     });
   })
 );
 
 app.get(
-  '/testing',
+  '/results',
   requireLogin,
   requireLabUser,
   asyncHandler(async (req, res) => {
@@ -190,8 +195,9 @@ app.get(
       };
     });
 
-    res.render('lab/testing', {
+    res.render('lab/results', {
       testing: formattedTesting,
+      title: 'Results'
     });
   })
 );
@@ -199,7 +205,7 @@ app.get(
 app.get('/directory', (req, res) => {
   if (!req.session.user) return res.redirect('/login');
 
-  res.render('lab/directory');
+  res.render('lab/directory', { title: 'Directory' });
 });
 
 app.get(
@@ -207,7 +213,7 @@ app.get(
   asyncHandler(async (req, res) => {
     if (!req.session.user) return res.redirect('/login');
 
-    res.render('chat/index');
+    res.render('chat/index', { title: 'Chat' });
   })
 );
 
@@ -219,7 +225,8 @@ app.get(
     const users = await user_DB('users').select('*');
 
     res.render('admin', {
-      users: users
+      users: users,
+      title: 'Admin'
     });
   })
 );
@@ -230,7 +237,8 @@ app.get(
   asyncHandler(async (req, res) => {
     res.render('account', {
       error: null,
-      success: null
+      success: null,
+      title: 'Account'
     });
   })
 );
@@ -239,8 +247,89 @@ app.post(
   '/account',
   requireLogin,
   asyncHandler(async (req, res) => {
-    const { username, current_password, new_password} = req.body;
-    
+    const { current_password, new_password } = req.body;
+
+    try {
+      const userId = req.session.user.id;
+      await updatePassword(userId, current_password, new_password);
+      res.redirect('/account');
+    } catch (error) {
+      console.error('Password update error:', error.message);
+      res.status(400).send(error.message);
+    }
+  })
+);
+
+app.post(
+  '/admin/reset-password',
+  requireLogin,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const { username, new_password } = req.body;
+
+    try {
+      const updatedUsername = await adminResetUserPassword(username, new_password);
+      res.redirect('/admin');
+    } catch (error) {
+      console.error('Admin password reset error:', error.message);
+      res.status(400).send(error.message);
+    }
+  })
+);
+
+app.post(
+  '/admin/delete-user',
+  requireLogin,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const { user_id } = req.body;
+
+    if (!user_id) {
+      return res.status(400).send('User ID is required');
+    }
+
+    if (req.session.user.id === parseInt(user_id)) {
+      return res.status(400).send("You can't delete your own account");
+    }
+
+    try {
+      await deleteUser(user_id);
+      res.redirect('/admin');
+    } catch (error) {
+      console.error('Delete user error:', error.message);
+      if (error.message === 'User not found') {
+        return res.status(404).send(error.message);
+      }
+      res.status(500).send('Internal server error');
+    }
+  })
+);
+
+app.post(
+  '/admin/toggle-user',
+  requireLogin,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const { user_id } = req.body;
+
+    if (!user_id) {
+      return res.status(400).send('User ID is required');
+    }
+
+    if (req.session.user.id === parseInt(user_id)) {
+      return res.status(400).send("You can't change your own active status");
+    }
+
+    try {
+      const newStatus = await toggleUser(user_id);
+      res.redirect('/admin');
+    } catch (error) {
+      console.error('Toggle user status error:', error.message);
+      if (error.message === 'User not found') {
+        return res.status(404).send(error.message);
+      }
+      res.status(500).send('Internal server error');
+    }
   })
 );
 
@@ -251,7 +340,7 @@ app.post(
   asyncHandler(async (req, res) => {
     const { username, password, isLabUser } = req.body;
     const id = await registerUser(username, password, isLabUser);
-    res.status(201).json({ message: 'User registered', id });
+    res.redirect('/admin');
   })
 );
 
@@ -266,10 +355,7 @@ app.post(
     const user = await loginUser(username, password);
 
     if (!user) {
-      return res.status(401).render('login', {
-        title: 'Log In',
-        error: 'Invalid credentials',
-      });
+      es.redirect('/login');
     }
 
     req.session.user = {

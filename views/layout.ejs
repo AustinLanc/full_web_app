@@ -16,6 +16,52 @@
     crossorigin="anonymous"
   />
   <link href="/static/icon.ico" rel="icon" />
+
+  <style>
+    body {
+      background-color: #f1f3f5;
+      color: #333;
+      font-family: 'Inter', sans-serif;
+    }
+
+    nav.navbar {
+      background-color: #ffffff;
+      border-bottom: 1px solid #dee2e6;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03);
+    }
+
+    .navbar-brand img {
+      height: 40px;
+    }
+
+    .navbar-nav .nav-link {
+      font-weight: 500;
+      color: #333;
+    }
+
+    .navbar-nav .nav-link:hover {
+      color: #0d6efd;
+    }
+
+    .btn-danger,
+    .btn-primary,
+    .btn-secondary {
+      border-radius: 6px;
+      font-weight: 500;
+    }
+
+    .modal-content {
+      border-radius: 8px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 30px;
+      font-size: 0.9rem;
+      color: #777;
+    }
+  </style>
 </head>
 <body>
   <nav class="navbar navbar-expand-md navbar-light bg-light border">
@@ -41,7 +87,7 @@
               <li class="nav-item"><a class="nav-link" href="/update">Update</a></li>
               <li class="nav-item"><a class="nav-link" href="/retains">Retains</a></li>
               <li class="nav-item"><a class="nav-link" href="/qc">QC</a></li>
-              <li class="nav-item"><a class="nav-link" href="/testing">Testing</a></li>
+              <li class="nav-item"><a class="nav-link" href="/results">Results</a></li>
               <li class="nav-item"><a class="nav-link" href="/directory">Directory</a></li>
             <% } %>
             <li class="nav-item"><a class="nav-link" href="/chat">Chat</a></li>
@@ -124,15 +170,12 @@
 
       if (!logoutBtn || !confirmLogoutBtn || !logoutModalEl) return;
 
-      // Initialize Bootstrap modal
       const logoutModal = new bootstrap.Modal(logoutModalEl);
 
-      // Show modal on logout button click
       logoutBtn.addEventListener('click', () => {
         logoutModal.show();
       });
 
-      // Confirm logout
       confirmLogoutBtn.addEventListener('click', () => {
         fetch('/logout', { method: 'POST' })
           .then(() => {
@@ -143,7 +186,6 @@
           });
       });
 
-      // Prevent focus warning
       logoutModalEl.addEventListener('hide.bs.modal', () => {
         if (logoutModalEl.contains(document.activeElement)) {
           document.activeElement.blur();
@@ -152,9 +194,7 @@
     });
   </script>
 
-  <footer
-    style="text-align:center; margin-top: 30px; font-size: 0.9rem; color: #777;"
-  >
+  <footer>
     Developed by Austin Lancaster
   </footer>
 </body>

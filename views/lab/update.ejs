@@ -1,46 +1,77 @@
 <% layout('layout') %>
 
 <div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card shadow-sm">
-                <div class="card-header bg-primary text-white">
-                    <h3 class="text-center mb-0">Retain Update</h3>
-                </div>
-                <div class="card-body">
-                    <form action="/update" method="post">
-                        <div class="mb-4">
-                            <label for="code_batch" class="form-label">Product Code and Batch Number</label>
-                            <div class="input-group">
-                                <span class="input-group-text"><i class="fas fa-barcode"></i></span>
-                                <input type="text" class="form-control" id="code_batch" name="code_batch" autocomplete="off" placeholder="e.g 507450 NA5001" autofocus required>
-                            </div>
-                        </div>
-                        <div class="mb-4">
-                            <label for="box" class="form-label">Box Number</label>
-                            <div class="input-group">
-                                <span class="input-group-text"><i class="fas fa-box"></i></span>
-                                <input type="text" class="form-control" id="box" name="box" autocomplete="off" placeholder="e.g 15" required>
-                            </div>
-                        </div>
-                        <div class="mb-4">
-                            <label for="date" class="form-label">Date</label>
-                            <div class="input-group">
-                                <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
-                                <input type="date" class="form-control" id="date" name="date" autocomplete="off">
-                            </div>
-                        </div>
-                        <div class="d-grid gap-2">
-                            <button class="btn btn-success" type="submit" name="action" value="add">
-                                <i class="fas fa-plus-circle me-2"></i>Add Retain
-                            </button>
-                            <button class="btn btn-danger" type="submit" name="action" value="remove">
-                                <i class="fas fa-minus-circle me-2"></i>Remove Retain
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
+  <div class="row justify-content-center">
+    <div class="col-md-8">
+      <div class="card shadow border rounded-3">
+        <div class="card-header bg-white border-bottom">
+          <h3 class="text-center mb-0 text-dark fw-semibold">Update Retain Record</h3>
         </div>
+
+        <div class="card-body bg-light">
+          <form action="/update" method="post">
+            <!-- Code & Batch -->
+            <div class="mb-4">
+              <label for="code_batch" class="form-label fw-semibold text-dark">Product Code and Batch Number</label>
+              <div class="input-group">
+                <span class="input-group-text bg-secondary-subtle text-dark"><i class="fas fa-barcode"></i></span>
+                <input
+                  type="text"
+                  class="form-control bg-white border-secondary"
+                  id="code_batch"
+                  name="code_batch"
+                  placeholder="e.g. 507450 NA5001"
+                  autocomplete="off"
+                  autofocus
+                  required
+                />
+              </div>
+            </div>
+
+            <!-- Box Number -->
+            <div class="mb-4">
+              <label for="box" class="form-label fw-semibold text-dark">Box Number</label>
+              <div class="input-group">
+                <span class="input-group-text bg-secondary-subtle text-dark"><i class="fas fa-box"></i></span>
+                <input
+                  type="text"
+                  class="form-control bg-white border-secondary"
+                  id="box"
+                  name="box"
+                  placeholder="e.g. 15"
+                  autocomplete="off"
+                  required
+                />
+              </div>
+            </div>
+
+            <!-- Date -->
+            <div class="mb-4">
+              <label for="date" class="form-label fw-semibold text-dark">Date</label>
+              <div class="input-group">
+                <span class="input-group-text bg-secondary-subtle text-dark"><i class="fas fa-calendar-alt"></i></span>
+                <input
+                  type="date"
+                  class="form-control bg-white border-secondary"
+                  id="date"
+                  name="date"
+                  autocomplete="off"
+                />
+              </div>
+            </div>
+
+            <!-- Buttons -->
+            <div class="d-grid gap-3 mt-4">
+              <button class="btn btn-dark" type="submit" name="action" value="add">
+                <i class="fas fa-plus-circle me-2"></i>Add Retain
+              </button>
+              <button class="btn btn-outline-danger" type="submit" name="action" value="remove">
+                <i class="fas fa-minus-circle me-2"></i>Remove Retain
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
+  </div>
 </div>

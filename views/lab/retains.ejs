@@ -1,99 +1,103 @@
 <% layout('layout') %>
 
 <div class="container mt-5">
-    <div class="card shadow-sm">
-        <div class="card-header bg-primary text-white">
-            <h3 class="mb-0 text-center">Retain Inventory</h3>
+  <div class="card shadow border-0 rounded-3">
+    <div class="card-header bg-white border-bottom">
+      <h3 class="text-center mb-0 text-dark fw-semibold">Retain Inventory</h3>
+    </div>
+    <div class="card-body bg-light">
+      <div class="row mb-4 align-items-center">
+        <div class="col-md-8 mb-3 mb-md-0">
+          <div class="input-group">
+            <span class="input-group-text bg-secondary-subtle text-dark">
+              <i class="fas fa-search"></i>
+            </span>
+            <input type="text" id="search" class="form-control border-secondary bg-white" onkeyup="filterTable()" placeholder="Search by Product Code or Batch Number...">
+          </div>
         </div>
-        <div class="card-body">
-            <div class="row mb-4 align-items-center">
-                <div class="col-md-8 mb-3 mb-md-0">
-                    <div class="input-group">
-                        <span class="input-group-text"><i class="fas fa-search"></i></span>
-                        <input type="text" id="search" class="form-control" onkeyup="filterTable()" placeholder="Search by Product Code or Batch Number...">
-                    </div>
-                </div>
-                <% if (user_id == 1) { %>
-                    <div class="col-md-4 text-md-end">
-                        <button class="btn btn-danger w-100" type="button" data-bs-toggle="modal" data-bs-target="#deleteBoxModal">
-                            <i class="fas fa-trash-alt me-2"></i>Delete Box
-                        </button>
-                    </div>
+        <% if (user_id == 1) { %>
+          <div class="col-md-4 text-md-end">
+            <button class="btn btn-outline-danger w-100" type="button" data-bs-toggle="modal" data-bs-target="#deleteBoxModal">
+              <i class="fas fa-trash-alt me-2"></i>Delete Box
+            </button>
+          </div>
+        <% } %>
+      </div>
+
+      <div class="table-responsive" style="max-height: 60vh; overflow-y: auto;">
+        <table class="table table-hover align-middle" id="inventoryTable">
+          <thead class="table-light sticky-top">
+            <tr>
+              <th>Product Code</th>
+              <th>Product Name</th>
+              <th>Batch Number</th>
+              <th>Date Released</th>
+              <th>Box Number</th>
+              <% if (user_id == 1) { %>
+                <th class="text-center">Action</th>
+              <% } %>
+            </tr>
+          </thead>
+          <tbody>
+            <% for (let retain of retains) { %>
+              <tr>
+                <td><%= retain.code %></td>
+                <td><%= retain.name %></td>
+                <td><%= retain.batch %></td>
+                <td><%= retain.formattedDate %></td>
+                <td><%= retain.box %></td>
+                <% if (user_id === 1) { %>
+                  <td class="text-center">
+                    <button class="btn btn-outline-danger btn-sm deleteButton" title="Delete">
+                      <i class="fas fa-trash-alt"></i>
+                    </button>
+                  </td>
                 <% } %>
-            </div>
-            <div class="table-responsive" style="height: 60vh; overflow-y: auto;">
-                <table class="table table-hover align-middle" id="inventoryTable">
-                    <thead class="table-light sticky-top">
-                        <tr>
-                            <th>Product Code</th>
-                            <th>Product Name</th>
-                            <th>Batch Number</th>
-                            <th>Date Released</th>
-                            <th>Box Number</th>
-                            <% if (user_id == 1) { %>
-                                <th class="text-center">Action</th>
-                            <% } %>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <% for (let retain of retains) { %>
-                            <tr>
-                                <td><%= retain.code %></td>
-                                <td><%= retain.name %></td>
-                                <td><%= retain.batch %></td>
-                                <td><%= retain.formattedDate %></td>
-                                <td><%= retain.box %></td>
-                                <% if (user_id === 1) { %>
-                                    <td class="text-center">
-                                        <button class="btn btn-outline-danger btn-sm deleteButton" title="Delete">
-                                            <i class="fas fa-trash-alt"></i>
-                                        </button>
-                                    </td>
-                                <% } %>
-                            </tr>
-                        <% } %>
-
-                    </tbody>
-                </table>
-            </div>
-        </div>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
     </div>
+  </div>
 </div>
 
+<!-- Delete Box Modal -->
 <div class="modal fade" id="deleteBoxModal" tabindex="-1" aria-labelledby="deleteBoxModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="deleteBoxModalLabel">Delete Box</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <input type="text" class="form-control" id="boxNumberInput" placeholder="Enter Box Number">
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary" id="confirmDeleteBox">Confirm</button>
-            </div>
-        </div>
+  <div class="modal-dialog">
+    <div class="modal-content border-0 shadow-sm">
+      <div class="modal-header bg-light border-bottom">
+        <h5 class="modal-title text-dark" id="deleteBoxModalLabel">Delete Box</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="text" class="form-control border-secondary" id="boxNumberInput" placeholder="Enter Box Number">
+      </div>
+      <div class="modal-footer bg-light">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-danger" id="confirmDeleteBox">Confirm</button>
+      </div>
     </div>
+  </div>
 </div>
 
+<!-- Confirmation Modal -->
 <div class="modal fade" id="confirmationModal" tabindex="-1" aria-labelledby="confirmationModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="confirmationModalLabel">Confirm Deletion</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                Are you sure you want to delete box <span id="confirmBoxNumber"></span>?
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-danger" id="yesDelete">Yes</button>
-            </div>
-        </div>
+  <div class="modal-dialog">
+    <div class="modal-content border-0 shadow-sm">
+      <div class="modal-header bg-light border-bottom">
+        <h5 class="modal-title text-dark" id="confirmationModalLabel">Confirm Deletion</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        Are you sure you want to delete box <strong><span id="confirmBoxNumber"></span></strong>?
+      </div>
+      <div class="modal-footer bg-light">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger" id="yesDelete">Yes</button>
+      </div>
     </div>
+  </div>
 </div>
 
 <style>
@@ -123,10 +127,9 @@
                 const [month, day, year] = date.split('/');
                 const isoDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
                 
-                const data = { 
-                    code: code,
+               const data = { 
+                    code_batch: `${code} ${batch}`,
                     box: box, 
-                    batch: batch, 
                     date: isoDate,
                     action: 'deleteRow'
                 };
@@ -138,18 +141,6 @@
                     },
                     body: JSON.stringify(data)
                 })
-                .then(response => {
-                    if (response.ok) {
-                        row.remove();
-                        alert('Row deleted successfully');
-                    } else {
-                        throw new Error('Failed to delete row');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Error deleting row');
-                });
             }
         });
     });

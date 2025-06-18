@@ -58,7 +58,7 @@ function requireLabUser(req, res, next) {
 
 function requireLogin(req, res, next) {
   if (!req.session.user) {
-    return res.status(401).json({ error: 'Not logged in' });
+    res.redirect('/login');
   }
   next();
 }
@@ -99,21 +99,58 @@ async function updatePassword(id, oldPassword, newPassword) {
   }
 
   const isMatch = await bcrypt.compare(oldPassword, user.password);
-  const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
-
   if (!isMatch) {
     throw new Error('Incorrect password');
   }
 
-  const updated = await chat_DB('users')
-  .where({ id: user.id })
-  .update({
-    password: hashedPassword,
-  });
+  const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
+
+  await user_DB('users')
+    .where({ id: user.id })
+    .update({ password: hashedPassword });
 
   return id;
 }
 
+async function adminResetUserPassword(username, newPassword) {
+  const user = await user_DB('users').where({ username }).first();
+
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
+
+  await user_DB('users')
+    .where({ id: user.id })
+    .update({ password: hashedPassword });
+
+  return user.username;
+}
+
+async function deleteUser(userId) {
+  const deletedCount = await user_DB('users').where({ id: userId }).del();
+  if (deletedCount === 0) {
+    throw new Error('User not found');
+  }
+  return deletedCount;
+}
+
+async function toggleUser(userId) {
+  const user = await user_DB('users').where({ id: userId }).first();
+
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  const newStatus = user.active === 1 ? 0 : 1;
+
+  await user_DB('users')
+    .where({ id: userId })
+    .update({ active: newStatus });
+
+  return newStatus;
+}
 
 module.exports = {
   registerUser,
@@ -121,5 +158,8 @@ module.exports = {
   requireLogin,
   requireAdmin,
   requireLabUser,
-  updatePassword
+  updatePassword,
+  adminResetUserPassword,
+  deleteUser,
+  toggleUser
 };
