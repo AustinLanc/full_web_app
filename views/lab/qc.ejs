@@ -1,66 +1,63 @@
 <% layout('layout') %>
 
 <div class="container mt-5">
-    <div class="card shadow-sm">
-        <div class="card-header bg-primary text-white">
-            <h3 class="mb-0 text-center">QC Logs</h3>
-        </div>
-        <div class="card-body">
-            <div class="row mb-4 align-items-center">
-                <div class="col-md-8 mb-3 mb-md-0">
-                    <div class="input-group">
-                        <span class="input-group-text"><i class="fas fa-search"></i></span>
-                        <input type="text" id="search" class="form-control" onkeyup="filterTable()" placeholder="Search by Product Code or Batch Number...">
-                    </div>
-                </div>
-            </div>
-            <div class="table-responsive" style="height: 60vh; overflow-y: auto;">
-                <table class="table table-hover align-middle" id="qcTable">
-                    <thead class="table-light sticky-top">
-                        <tr>
-                            <th>Batch Number</th>
-                            <th>Product Code</th>
-                            <th>Product Name</th>
-                            <th>Suffix</th>
-                            <th>Worked Pen</th>
-                            <th>Drop Point</th>
-                            <th>Date Released</th>
-                            <th>Released By</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <% for (let row of qc) { %>
-                            <% if (300000 < parseInt(row.code, 10) && parseInt(row.code, 10) < 900000) { %>
-                                <tr>
-                                    <td><%= row.batch %></td>
-                                    <td><%= row.code %></td>
-                                    <td><%= row.name %></td>
-                                    <td><%= row.suffix %></td>
-                                    <td><%= row.pen_60x %></td>
-                                    <td><%= row.drop_point %></td>
-                                    <td><%= row.date %></td>
-                                    <td><%= row.released_by %></td>
-                                </tr>
-                            <% } %>
-                        <% } %>
-                    </tbody>
-                </table>
-            </div>
-        </div>
+  <div class="card shadow border-0 rounded-3">
+    <div class="card-header bg-white border-bottom">
+      <h3 class="mb-0 text-center text-dark fw-semibold">QC Logs</h3>
     </div>
-</div>
+    <div class="card-body bg-light">
+      <div class="row mb-4 align-items-center">
+        <div class="col-md-8 mb-3 mb-md-0">
+          <div class="input-group">
+            <span class="input-group-text bg-secondary-subtle text-dark">
+              <i class="fas fa-search"></i>
+            </span>
+            <input
+              type="text"
+              id="search"
+              class="form-control bg-white border-secondary"
+              onkeyup="filterTable()"
+              placeholder="Search by Product Code or Batch Number..."
+            >
+          </div>
+        </div>
+      </div>
 
-<style>
-    @media (max-width: 767px) {
-        .table-responsive {
-            font-size: 0.9rem;
-        }
-        .btn-sm {
-            padding: 0.25rem 0.5rem;
-            font-size: 0.8rem;
-        }
-    }
-</style>
+      <div class="table-responsive" style="max-height: 60vh; overflow-y: auto;">
+        <table class="table table-hover align-middle" id="qcTable">
+          <thead class="table-light sticky-top">
+            <tr>
+              <th>Batch Number</th>
+              <th>Product Code</th>
+              <th>Product Name</th>
+              <th>Suffix</th>
+              <th>Worked Pen</th>
+              <th>Drop Point</th>
+              <th>Date Released</th>
+              <th>Released By</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% for (let row of qc) { %>
+              <% if (300000 < parseInt(row.code, 10) && parseInt(row.code, 10) < 900000) { %>
+                <tr>
+                  <td><%= row.batch %></td>
+                  <td><%= row.code %></td>
+                  <td><%= row.name %></td>
+                  <td><%= row.suffix %></td>
+                  <td><%= row.pen_60x %></td>
+                  <td><%= row.drop_point %></td>
+                  <td><%= row.date %></td>
+                  <td><%= row.released_by %></td>
+                </tr>
+              <% } %>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>
     function filterTable() {

@@ -1,0 +1,42 @@
+<% layout('layout') %>
+
+<div class="container mt-5">
+  <div class="row justify-content-center">
+    <div class="col-md-6">
+      <div class="card shadow border rounded-3">
+        <div class="card-header bg-white border-bottom">
+          <h3 class="text-center mb-0 text-dark fw-semibold">Add Batch</h3>
+        </div>
+
+        <div class="card-body bg-light">
+          <form action="/reminders" method="post">
+            <!-- Batch Number -->
+            <div class="mb-4">
+              <label for="batch" class="form-label fw-semibold text-dark">Batch Number</label>
+              <div class="input-group">
+                <span class="input-group-text bg-secondary-subtle text-dark"><i class="fas fa-barcode"></i></span>
+                <input
+                  type="text"
+                  class="form-control bg-white border-secondary"
+                  id="batch"
+                  name="batch"
+                  placeholder="e.g. NA5001"
+                  autocomplete="off"
+                  autofocus
+                  required
+                />
+              </div>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="d-grid gap-2 mt-4">
+              <button class="btn btn-dark" type="submit">
+                <i class="fas fa-plus-circle me-2"></i>Add Batch
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -7,6 +7,11 @@ const lab_DB = require('knex')(knexConfig.lab_DB);
 const chat_DB = require('knex')(knexConfig.chat_DB);
 const user_DB = require('knex')(knexConfig.user_DB);
 const path = require('path');
+const fs = require("fs");
+const TelegramBot = require('node-telegram-bot-api');
+const { TELEGRAM_TOKEN, CHAT_ID } = require("./config");
+const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
+const DATA_FILE = path.join(__dirname, "tasks.json");
 const {
   registerUser,
   loginUser,
@@ -14,6 +19,9 @@ const {
   requireAdmin,
   requireLabUser,
   updatePassword,
+  adminResetUserPassword,
+  deleteUser,
+  toggleUser,
 } = require('./auth');
 const sharedSession = require('express-socket.io-session');
 
@@ -98,6 +106,7 @@ app.get(
 
     res.render('lab/retains', {
       retains: formattedResults,
+      title: 'Retains'
     });
   })
 );
@@ -107,7 +116,7 @@ app.get(
   requireLogin,
   requireLabUser,
   asyncHandler(async (req, res) => {
-    res.render('lab/update');
+    res.render('lab/update', { title: 'Update' });
   })
 );
 
@@ -120,11 +129,11 @@ app.post(
 
     if (action === 'deleteBox') {
       await lab_DB('retains').where({ box: parseInt(box) }).del();
-      return res.sendStatus(200);
+      res.redirect('/retains');
     }
 
     if (!code_batch) {
-      return res.status(400).send('Missing code_batch');
+      res.redirect('/update');
     }
 
     const [codeStr, batch] = code_batch.split(' ');
@@ -144,7 +153,7 @@ app.post(
     if (action === 'deleteRow') {
       await lab_DB('retains')
         .where({ code: parseInt(code), batch: batch, box: parseInt(box), date: date}).del();
-      return res.sendStatus(200);
+      res.redirect('/retains');
     }
 
     res.redirect('/update');
@@ -165,12 +174,13 @@ app.get(
 
     res.render('lab/qc', {
       qc: results,
+      title: 'QC Logs'
     });
   })
 );
 
 app.get(
-  '/testing',
+  '/results',
   requireLogin,
   requireLabUser,
   asyncHandler(async (req, res) => {
@@ -190,8 +200,9 @@ app.get(
       };
     });
 
-    res.render('lab/testing', {
+    res.render('lab/results', {
       testing: formattedTesting,
+      title: 'Results'
     });
   })
 );
@@ -199,7 +210,7 @@ app.get(
 app.get('/directory', (req, res) => {
   if (!req.session.user) return res.redirect('/login');
 
-  res.render('lab/directory');
+  res.render('lab/directory', { title: 'Directory' });
 });
 
 app.get(
@@ -207,7 +218,7 @@ app.get(
   asyncHandler(async (req, res) => {
     if (!req.session.user) return res.redirect('/login');
 
-    res.render('chat/index');
+    res.render('chat/index', { title: 'Chat' });
   })
 );
 
@@ -219,7 +230,8 @@ app.get(
     const users = await user_DB('users').select('*');
 
     res.render('admin', {
-      users: users
+      users: users,
+      title: 'Admin'
     });
   })
 );
@@ -230,7 +242,8 @@ app.get(
   asyncHandler(async (req, res) => {
     res.render('account', {
       error: null,
-      success: null
+      success: null,
+      title: 'Account'
     });
   })
 );
@@ -239,8 +252,89 @@ app.post(
   '/account',
   requireLogin,
   asyncHandler(async (req, res) => {
-    const { username, current_password, new_password} = req.body;
-    
+    const { current_password, new_password } = req.body;
+
+    try {
+      const userId = req.session.user.id;
+      await updatePassword(userId, current_password, new_password);
+      res.redirect('/account');
+    } catch (error) {
+      console.error('Password update error:', error.message);
+      res.status(400).send(error.message);
+    }
+  })
+);
+
+app.post(
+  '/admin/reset-password',
+  requireLogin,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const { username, new_password } = req.body;
+
+    try {
+      const updatedUsername = await adminResetUserPassword(username, new_password);
+      res.redirect('/admin');
+    } catch (error) {
+      console.error('Admin password reset error:', error.message);
+      res.status(400).send(error.message);
+    }
+  })
+);
+
+app.post(
+  '/admin/delete-user',
+  requireLogin,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const { user_id } = req.body;
+
+    if (!user_id) {
+      return res.status(400).send('User ID is required');
+    }
+
+    if (req.session.user.id === parseInt(user_id)) {
+      return res.status(400).send("You can't delete your own account");
+    }
+
+    try {
+      await deleteUser(user_id);
+      res.redirect('/admin');
+    } catch (error) {
+      console.error('Delete user error:', error.message);
+      if (error.message === 'User not found') {
+        return res.status(404).send(error.message);
+      }
+      res.status(500).send('Internal server error');
+    }
+  })
+);
+
+app.post(
+  '/admin/toggle-user',
+  requireLogin,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const { user_id } = req.body;
+
+    if (!user_id) {
+      return res.status(400).send('User ID is required');
+    }
+
+    if (req.session.user.id === parseInt(user_id)) {
+      return res.status(400).send("You can't change your own active status");
+    }
+
+    try {
+      const newStatus = await toggleUser(user_id);
+      res.redirect('/admin');
+    } catch (error) {
+      console.error('Toggle user status error:', error.message);
+      if (error.message === 'User not found') {
+        return res.status(404).send(error.message);
+      }
+      res.status(500).send('Internal server error');
+    }
   })
 );
 
@@ -251,7 +345,7 @@ app.post(
   asyncHandler(async (req, res) => {
     const { username, password, isLabUser } = req.body;
     const id = await registerUser(username, password, isLabUser);
-    res.status(201).json({ message: 'User registered', id });
+    res.redirect('/admin');
   })
 );
 
@@ -266,10 +360,7 @@ app.post(
     const user = await loginUser(username, password);
 
     if (!user) {
-      return res.status(401).render('login', {
-        title: 'Log In',
-        error: 'Invalid credentials',
-      });
+      es.redirect('/login');
     }
 
     req.session.user = {
@@ -383,6 +474,119 @@ io.on('connection', (socket) => {
     console.log(`User disconnected: ${socket.id}`);
   });
 });
+
+const now = () => new Date();
+const addTime = (date, type) => {
+  let d = new Date(date);
+  switch (type) {
+    case "48h": d.setHours(d.getHours() + 48); break;
+    case "7d": d.setDate(d.getDate() + 7); break;
+    case "3m": d.setMonth(d.getMonth() + 3); break;
+    case "1y": d.setFullYear(d.getFullYear() + 1); break;
+  }
+  return d;
+};
+
+const INTERVALS = ["48h", "7d", "3m", "1y"];
+
+app.get("/reminders",
+  requireLogin,
+  requireLabUser,
+  asyncHandler(async(req, res) => {
+  res.render('lab/reminders', { title: 'Reminders' });
+}));
+
+app.post("/reminders", async (req, res) => {
+  const { batch } = req.body;
+  if (!batch) return res.status(400).send("Missing batch number");
+
+  const createdAt = new Date().toISOString();
+  const tasks = INTERVALS.map(interval => ({
+    id: `${batch}-${interval}`,
+    batch,
+    interval,
+    due: addTime(createdAt, interval),
+    notified: false
+  }));
+
+  const allTasks = readTasks();
+  writeTasks([...allTasks, ...tasks]);
+
+  // Send a Telegram confirmation message
+  const message = `✅ Batch *${batch}* added via API. Reminders have been scheduled.`;
+  try {
+    await sendTelegramMessage(message);
+  } catch (error) {
+    console.error("Telegram message failed:", error);
+    return res.status(500).send("Batch added, but failed to send Telegram message.");
+  }
+
+  res.send("Batch added with scheduled checks and Telegram notification sent.");
+});
+
+
+function readTasks() {
+  return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+}
+
+function writeTasks(data) {
+  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+}
+
+function addBatchTasks(batch) {
+  const createdAt = new Date().toISOString();
+  const newTasks = INTERVALS.map(interval => ({
+    id: `${batch}-${interval}`,
+    batch,
+    interval,
+    due: addTime(createdAt, interval),
+    notified: false
+  }));
+
+  const allTasks = readTasks();
+  writeTasks([...allTasks, ...newTasks]);
+}
+
+async function sendTelegramMessage(text) {
+  const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
+  await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: CHAT_ID, text })
+  });
+}
+
+async function checkDueTasks() {
+  const tasks = readTasks();
+  const nowTime = new Date();
+
+  let updated = false;
+
+  for (let task of tasks) {
+    if (!task.notified && new Date(task.due) <= nowTime) {
+      const message = `🔔 Batch ${task.batch} - ${task.interval} check is due!`;
+      await sendTelegramMessage(message);
+      task.notified = true;
+      updated = true;
+    }
+  }
+
+  if (updated) writeTasks(tasks);
+}
+
+bot.on('message', (msg) => {
+  const chatId = msg.chat.id;
+  const text = msg.text && msg.text.trim().toUpperCase();
+
+  if (text && /^[A-Z0-9\- ]{3,}$/.test(text)) {
+    addBatchTasks(text);
+    bot.sendMessage(chatId, `✅ Batch *${text}* added and reminders scheduled!`, { parse_mode: 'Markdown' });
+  } else {
+    bot.sendMessage(chatId, '⚠️ Please send a valid batch number.');
+  }
+});
+
+setInterval(checkDueTasks, 60 * 1000);
 
 server.listen(3000, () => {
   console.log('Server running on http://localhost:3000');
