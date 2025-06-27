@@ -12,6 +12,7 @@ const TelegramBot = require('node-telegram-bot-api');
 const { TELEGRAM_TOKEN, CHAT_ID } = require("./config");
 const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
 const DATA_FILE = path.join(__dirname, "tasks.json");
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 const {
   registerUser,
   loginUser,
@@ -513,7 +514,7 @@ app.post("/reminders", async (req, res) => {
   writeTasks([...allTasks, ...tasks]);
 
   // Send a Telegram confirmation message
-  const message = `✅ Batch *${batch}* added via API. Reminders have been scheduled.`;
+  const message = `✅ Batch *${batch}* added!`;
   try {
     await sendTelegramMessage(message);
   } catch (error) {
@@ -521,7 +522,7 @@ app.post("/reminders", async (req, res) => {
     return res.status(500).send("Batch added, but failed to send Telegram message.");
   }
 
-  res.send("Batch added with scheduled checks and Telegram notification sent.");
+  res.redirect('lab/reminders', { title: 'Reminders' });
 });
 
 
@@ -578,11 +579,9 @@ bot.on('message', (msg) => {
   const chatId = msg.chat.id;
   const text = msg.text && msg.text.trim().toUpperCase();
 
-  if (text && /^[A-Z0-9\- ]{3,}$/.test(text)) {
+  if (text && /^[A-Z]{2}\d{4}[A-Z]?$/.test(text)) {
     addBatchTasks(text);
-    bot.sendMessage(chatId, `✅ Batch *${text}* added and reminders scheduled!`, { parse_mode: 'Markdown' });
-  } else {
-    bot.sendMessage(chatId, '⚠️ Please send a valid batch number.');
+    bot.sendMessage(chatId, `✅ Batch *${text}* added!`, { parse_mode: 'Markdown' });
   }
 });
 
