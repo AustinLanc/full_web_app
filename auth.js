@@ -21,19 +21,24 @@ async function registerUser(username, password, isLabMember = false) {
 }
 
 async function loginUser(username, inputPassword) {
-  const user = await user_DB('users').where({ username }).first();
+  try {
+    const user = await user_DB('users').where({ username }).first();
 
-  if (!user || user.active === false) {
-    throw new Error('User not found');
+    if (!user || user.active === false) {
+      return null;
+    }
+
+    const isMatch = await bcrypt.compare(inputPassword, user.password);
+
+    if (!isMatch) {
+      return null;
+    }
+
+    return user;
+  } catch (err) {
+    console.error('loginUser error:', err);
+    return null;
   }
-
-  const isMatch = await bcrypt.compare(inputPassword, user.password);
-
-  if (!isMatch) {
-    throw new Error('Incorrect password');
-  }
-
-  return user;
 }
 
 function requireLabUser(req, res, next) {

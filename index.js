@@ -361,7 +361,7 @@ app.post(
     const user = await loginUser(username, password);
 
     if (!user) {
-      res.redirect('/login');
+      return res.redirect('/login');
     }
 
     req.session.user = {
