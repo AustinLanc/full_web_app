@@ -2,6 +2,7 @@ const express = require('express');
 const session = require('express-session');
 const http = require('http');
 const { Server } = require('socket.io');
+const { spawn } = require('child_process');
 const knexConfig = require('./knexfile');
 const lab_DB = require('knex')(knexConfig.lab_DB);
 const chat_DB = require('knex')(knexConfig.chat_DB);
@@ -513,7 +514,6 @@ app.post("/reminders", async (req, res) => {
   const allTasks = readTasks();
   writeTasks([...allTasks, ...tasks]);
 
-  // Send a Telegram confirmation message
   const message = `✅ Batch *${batch}* added!`;
   try {
     await sendTelegramMessage(message);
@@ -525,6 +525,21 @@ app.post("/reminders", async (req, res) => {
   res.redirect('lab/reminders', { title: 'Reminders' });
 });
 
+app.get('/update-database',
+  requireLogin,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    try {
+      const response1 = await fetch('http://host.docker.internal:5001/run-scripts', { method: 'POST' });
+      const output1 = await response1.text();
+
+      res.send(output1);
+    } catch (err) {
+      console.error('❌ Error calling host script:', err);
+      res.status(500).send('Failed to run script on host');
+    }
+  })
+);
 
 function readTasks() {
   return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));

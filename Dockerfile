@@ -14,7 +14,7 @@ COPY . .
 # Expose the port your Express app runs on
 EXPOSE 3000
 
-# Optional: non-root user for better security
+# Optional: create non-root user for better security
 RUN useradd -m appuser
 USER appuser
 
