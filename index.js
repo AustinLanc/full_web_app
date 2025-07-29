@@ -590,6 +590,23 @@ async function checkDueTasks() {
   if (updated) writeTasks(tasks);
 }
 
+function cleanupNotifiedEntries() {
+  try {
+    if (!fs.existsSync(DATA_FILE)) return;
+
+    const data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+    const cleaned = data.filter(entry => !entry.notified);
+
+    // Only write if changes were made
+    if (cleaned.length !== data.length) {
+      fs.writeFileSync(DATA_FILE, JSON.stringify(cleaned, null, 2), 'utf8');
+      console.log(`[${new Date().toISOString()}] Cleaned up ${data.length - cleaned.length} notified entries.`);
+    }
+  } catch (err) {
+    console.error('Error during cleanup:', err);
+  }
+}
+
 bot.on('message', (msg) => {
   const chatId = msg.chat.id;
   const text = msg.text && msg.text.trim().toUpperCase();
@@ -600,7 +617,10 @@ bot.on('message', (msg) => {
   }
 });
 
-setInterval(checkDueTasks, 60 * 1000);
+checkDueTasks();
+cleanupNotifiedEntries();
+setInterval(cleanupNotifiedEntries, 7 * 24 * 60 * 60 * 1000);
+setInterval(checkDueTasks, 60 * 1000 * 30);
 
 server.listen(3000, () => {
   console.log('Server running on http://localhost:3000');
