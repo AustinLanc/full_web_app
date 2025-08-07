@@ -244,8 +244,9 @@ app.get(
         formattedDate: `${mm}/${dd}/${yyyy}`,
       };
     });
-    
+
     cachedResults = formattedTesting;
+    await fsp.writeFile(cacheFilePath, JSON.stringify(formattedTesting), 'utf8');
 
     res.render('lab/results', {
       testing: cachedResults,

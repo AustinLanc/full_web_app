@@ -2,3 +2,5 @@
 config.js
 tasks.json
 test-telegram.mjs
+qc.json
+results.json
