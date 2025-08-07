@@ -9,6 +9,7 @@ const chat_DB = require('knex')(knexConfig.chat_DB);
 const user_DB = require('knex')(knexConfig.user_DB);
 const path = require('path');
 const fs = require("fs");
+const fsp = require('fs').promises;
 const TelegramBot = require('node-telegram-bot-api');
 const { TELEGRAM_TOKEN, CHAT_ID } = require("./config");
 const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
@@ -172,7 +173,7 @@ app.get(
   asyncHandler(async (req, res) => {
     if (!cachedQCResults) {
       try {
-        const fileData = await fs.readFile(qcCacheFilePath, 'utf8');
+        const fileData = await fsp.readFile(qcCacheFilePath, 'utf8');
         cachedQCResults = JSON.parse(fileData);
       } catch (err) {
         console.log('No QC cache found on disk yet or error reading it.');
@@ -195,7 +196,7 @@ app.get(
       );
 
     cachedQCResults = results;
-    await fs.writeFile(qcCacheFilePath, JSON.stringify(results), 'utf8');
+    await fsp.writeFile(qcCacheFilePath, JSON.stringify(results), 'utf8');
 
     res.render('lab/qc', {
       qc: results,
@@ -214,7 +215,7 @@ app.get(
   asyncHandler(async (req, res) => {
     if (!cachedResults) {
       try {
-        const fileData = await fs.readFile(cacheFilePath, 'utf8');
+        const fileData = await fsp.readFile(cacheFilePath, 'utf8');
         cachedResults = JSON.parse(fileData);
       } catch (err) {
         console.log('No cached results found on disk yet or error reading it.');
@@ -243,8 +244,7 @@ app.get(
         formattedDate: `${mm}/${dd}/${yyyy}`,
       };
     });
-
-    // Store in cache
+    
     cachedResults = formattedTesting;
 
     res.render('lab/results', {
