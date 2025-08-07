@@ -162,11 +162,31 @@ app.post(
   })
 );
 
+const qcCacheFilePath = path.join(__dirname, 'qc.json');
+let cachedQCResults = null; // Reduce large queries on qc table
+
 app.get(
   '/qc',
   requireLogin,
   requireLabUser,
   asyncHandler(async (req, res) => {
+    if (!cachedQCResults) {
+      try {
+        const fileData = await fs.readFile(qcCacheFilePath, 'utf8');
+        cachedQCResults = JSON.parse(fileData);
+      } catch (err) {
+        console.log('No QC cache found on disk yet or error reading it.');
+      }
+    }
+
+    if (cachedQCResults && Array.isArray(cachedQCResults)) {
+      return res.render('lab/qc', {
+        qc: cachedQCResults,
+        title: 'QC Logs',
+      });
+    }
+
+    console.log('🔍 Querying database for QC logs');
     const results = await lab_DB('qc')
       .join('names', 'qc.code', 'names.code')
       .select('qc.*', 'names.name')
@@ -174,18 +194,40 @@ app.get(
         'SUBSTRING(batch, 3, 1) DESC, SUBSTRING(batch, 2, 1) DESC, SUBSTRING(batch, 4) DESC'
       );
 
+    cachedQCResults = results;
+    await fs.writeFile(qcCacheFilePath, JSON.stringify(results), 'utf8');
+
     res.render('lab/qc', {
       qc: results,
-      title: 'QC Logs'
+      title: 'QC Logs',
     });
   })
 );
+
+const cacheFilePath = path.join(__dirname, 'results.json');
+let cachedResults = null; // To reduce large queries for results
 
 app.get(
   '/results',
   requireLogin,
   requireLabUser,
   asyncHandler(async (req, res) => {
+    if (!cachedResults) {
+      try {
+        const fileData = await fs.readFile(cacheFilePath, 'utf8');
+        cachedResults = JSON.parse(fileData);
+      } catch (err) {
+        console.log('No cached results found on disk yet or error reading it.');
+      }
+    }
+
+    if (cachedResults && Array.isArray(cachedResults)) {
+      return res.render('lab/results', {
+        testing: cachedResults,
+        title: 'Results',
+      });
+    }
+
     const results = await lab_DB('testing_data')
       .join('names', 'testing_data.code', 'names.code')
       .select('testing_data.*', 'names.name')
@@ -202,9 +244,12 @@ app.get(
       };
     });
 
+    // Store in cache
+    cachedResults = formattedTesting;
+
     res.render('lab/results', {
-      testing: formattedTesting,
-      title: 'Results'
+      testing: cachedResults,
+      title: 'Results',
     });
   })
 );
@@ -532,7 +577,8 @@ app.get('/update-database',
     try {
       const response1 = await fetch('http://host.docker.internal:5001/run-scripts', { method: 'POST' });
       const output1 = await response1.text();
-
+      cachedResults = null;
+      cachedQCResults = null;
       res.send(output1);
     } catch (err) {
       console.error('❌ Error calling host script:', err);
