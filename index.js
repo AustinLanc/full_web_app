@@ -1,3 +1,4 @@
+// This is the config and requirements for the server. Sets up the constant variables that are used throughout the rest of the code and imports functions from other .js files
 const express = require('express');
 const session = require('express-session');
 const http = require('http');
@@ -8,13 +9,16 @@ const lab_DB = require('knex')(knexConfig.lab_DB);
 const chat_DB = require('knex')(knexConfig.chat_DB);
 const user_DB = require('knex')(knexConfig.user_DB);
 const path = require('path');
+// The following two lines are similar but one is synchronous and one is async
 const fs = require("fs");
 const fsp = require('fs').promises;
+// Next three lines are for the telegram bot. This isn't required for the server to function if all Telegram related stuff is removed
 const TelegramBot = require('node-telegram-bot-api');
-const { TELEGRAM_TOKEN, CHAT_ID } = require("./config");
+const { TELEGRAM_TOKEN, CHAT_ID } = require("./config"); // This file contains the Telegram token and chat id required for the bot to send and receive messages. Check example-config.js for format
 const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
-const DATA_FILE = path.join(__dirname, "tasks.json");
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+const DATA_FILE = path.join(__dirname, "tasks.json"); // This file stores all the retain checks for the future. Later code removes old ones that have passed.
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'; // For production, this line should be removed and HTTPs should be set up
+// These are user defined functions that pertain to user account handling. Helps keep this main file cleaner.
 const {
   registerUser,
   loginUser,
@@ -31,6 +35,7 @@ const sharedSession = require('express-socket.io-session');
 const app = express();
 const server = http.createServer(app);
 
+// If HTTPs to be used, this section needs to be updated
 const sessionMiddleware = session({
   secret: process.env.SESSION_SECRET || 'your-very-secret-key',
   resave: false,
@@ -41,8 +46,8 @@ const sessionMiddleware = session({
 app.use(sessionMiddleware);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use('/static', express.static('static'));
-app.use('/chat', express.static(path.join(__dirname, 'views', 'chat')));
+app.use('/static', express.static('static')); // For static files e.g images, stylesheets, etc.
+app.use('/chat', express.static(path.join(__dirname, 'views', 'chat'))); // Specifically for the chat part of the web app
 
 app.use((req, res, next) => {
   if (req.session && req.session.user) {
@@ -59,6 +64,7 @@ app.use((req, res, next) => {
   next();
 });
 
+// For dynamic pages, allows elements to be updated without having to manually change it. Useful for tables that are updated
 app.set('views', './views');
 const engine = require('ejs-mate');
 app.engine('ejs', engine);
@@ -76,6 +82,7 @@ io.use(sharedSession(sessionMiddleware, { autoSave: true }));
 const asyncHandler = (fn) => (req, res, next) =>
   Promise.resolve(fn(req, res, next)).catch(next);
 
+// First / default route. Ensures users start at the correct page (login, update, or chat)
 app.get(
   '/',
   asyncHandler(async (req, res) => {
@@ -86,16 +93,18 @@ app.get(
   })
 );
 
+// For getting all retains that exists in storage
 app.get(
   '/retains',
-  requireLogin,
-  requireLabUser,
+  requireLogin, // User has to be logged in
+  requireLabUser, // User has to be a lab member
   asyncHandler(async (req, res) => {
-    const results = await lab_DB('retains')
+    const results = await lab_DB('retains') // Knex style database querying. Similar to raw SQL
       .join('names', 'retains.code', 'names.code')
       .select('retains.*', 'names.name')
       .orderByRaw('box, SUBSTRING(batch, 3, 4), SUBSTRING(batch, 1, 2)');
 
+    // Formats the date so it is in the 
     const formattedResults = results.map((retain) => {
       const d = new Date(retain.date);
       const mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -107,6 +116,7 @@ app.get(
       };
     });
 
+    // Renders template with the data. See retains.ejs to see how it gets unpacked
     res.render('lab/retains', {
       retains: formattedResults,
       title: 'Retains'
@@ -114,6 +124,7 @@ app.get(
   })
 );
 
+// Main page for lab users. Can add and remove individual retains from inventory.
 app.get(
   '/update',
   requireLogin,
@@ -123,16 +134,18 @@ app.get(
   })
 );
 
+// Still part of main page but handles POST requests. Notice app.post instead of app.get.
+// This route also handles requests from other forums as seen with the deleteBox option which is found at the /retains route if logged in as an Admin
 app.post(
   '/update',
   requireLogin,
   requireLabUser,
   asyncHandler(async (req, res) => {
-    const { code_batch, date, box, action } = req.body;
+    const { code_batch, date, box, action } = req.body; // With how the barcode for a retain is designed, the one field covers both the product code and batch number (e.g. ###### BATCH)
 
-    if (action === 'deleteBox') {
+    if (action === 'deleteBox') { // Deletes whole box (removes records with matching box number). Helps when deleting old (>1 year) retains
       await lab_DB('retains').where({ box: parseInt(box) }).del();
-      res.redirect('/retains');
+      res.redirect('/retains'); // Redirects to retain inventory page since that is where the user request with the deleteBox option would have came from
     }
 
     if (!code_batch) {
@@ -140,9 +153,9 @@ app.post(
     }
 
     const [codeStr, batch] = code_batch.split(' ');
-    const code = parseInt(codeStr);
-    const finalDate = date || new Date().toISOString().slice(0, 10);
-    const finalBox = parseInt(box);
+    const code = parseInt(codeStr); // Stored as int in database, not string, so have to convert
+    const finalDate = date || new Date().toISOString().slice(0, 10); // If no date provided, defaults to current date
+    const finalBox = parseInt(box); // Again, stored as int in database
 
     if (action === 'add') {
       await lab_DB('retains').insert({ code, batch, date: finalDate, box: finalBox });
@@ -153,6 +166,7 @@ app.post(
         .del();
     }
 
+    // Another action that is available only oon the retain inventory page when logged in as an Admin
     if (action === 'deleteRow') {
       await lab_DB('retains')
         .where({ code: parseInt(code), batch: batch, box: parseInt(box), date: date}).del();
@@ -163,15 +177,19 @@ app.post(
   })
 );
 
+// These two lines are used to cache data to reduce redundant queries on stagnant data (data is only updated on the SQL server every so often in batches)
 const qcCacheFilePath = path.join(__dirname, 'qc.json');
-let cachedQCResults = null; // Reduce large queries on qc table
+let cachedQCResults = null;
 
+// Route to show all QC data
 app.get(
   '/qc',
   requireLogin,
   requireLabUser,
   asyncHandler(async (req, res) => {
+    // Checks if there is a cache copy already
     if (!cachedQCResults) {
+      // If not, tries to open a local copy of the data
       try {
         const fileData = await fsp.readFile(qcCacheFilePath, 'utf8');
         cachedQCResults = JSON.parse(fileData);
@@ -180,6 +198,7 @@ app.get(
       }
     }
 
+    // If there is cached results, uses it instead of making a new query.
     if (cachedQCResults && Array.isArray(cachedQCResults)) {
       return res.render('lab/qc', {
         qc: cachedQCResults,
@@ -187,14 +206,16 @@ app.get(
       });
     }
 
+    // Will query if no cached results. Stores a local copy too incase server restarts. Not really necessary, but can be helpful for large data sets.
     console.log('🔍 Querying database for QC logs');
     const results = await lab_DB('qc')
-      .join('names', 'qc.code', 'names.code')
+      .join('names', 'qc.code', 'names.code') // Separate database tables that pairs product codes to product names
       .select('qc.*', 'names.name')
       .orderByRaw(
-        'SUBSTRING(batch, 3, 1) DESC, SUBSTRING(batch, 2, 1) DESC, SUBSTRING(batch, 4) DESC'
+        'SUBSTRING(batch, 3, 1) DESC, SUBSTRING(batch, 2, 1) DESC, SUBSTRING(batch, 4) DESC' // Orders by year, month, batch (in form location code (A-Z), month code (A-L), last digit of year, batch. E.g NA5001)
       );
-
+    
+    // Caches results so the above query only has to run about once a week or however often the database is actually updated
     cachedQCResults = results;
     await fsp.writeFile(qcCacheFilePath, JSON.stringify(results), 'utf8');
 
@@ -205,9 +226,11 @@ app.get(
   })
 );
 
+// Basically the same as with the qc data, just for testing data
 const cacheFilePath = path.join(__dirname, 'results.json');
-let cachedResults = null; // To reduce large queries for results
+let cachedResults = null;
 
+// See /qc route for better understanding of this route. Functions essentially the same.
 app.get(
   '/results',
   requireLogin,
@@ -255,12 +278,14 @@ app.get(
   })
 );
 
+// Basic route to display a page that lists the shared drive directories the lab uses. Helpful for new employees or as a refresher. Will have to manually update this page if files and folders are moved or renamed
 app.get('/directory', (req, res) => {
   if (!req.session.user) return res.redirect('/login');
 
   res.render('lab/directory', { title: 'Directory' });
 });
 
+// Route for the chat rooms, also default for non-lab users. The main code for this is below with the socket connections and in views/chat/index.ejs
 app.get(
   '/chat',
   asyncHandler(async (req, res) => {
@@ -270,6 +295,7 @@ app.get(
   })
 );
 
+// A route for Admins. Allows users to be created, deleted, set to active / inactive, force change password, etc.
 app.get(
   '/admin',
   requireLogin,
@@ -284,6 +310,7 @@ app.get(
   })
 );
 
+// Basic route for standard users to use
 app.get(
   '/account',
   requireLogin,
@@ -296,6 +323,7 @@ app.get(
   })
 );
 
+// For when users change their passwords, especially after an Admin resets it for them
 app.post(
   '/account',
   requireLogin,
@@ -313,6 +341,7 @@ app.post(
   })
 );
 
+// The Admin route for resetting user passwords
 app.post(
   '/admin/reset-password',
   requireLogin,
@@ -330,6 +359,7 @@ app.post(
   })
 );
 
+// Admin route for deleting users
 app.post(
   '/admin/delete-user',
   requireLogin,
@@ -342,7 +372,7 @@ app.post(
     }
 
     if (req.session.user.id === parseInt(user_id)) {
-      return res.status(400).send("You can't delete your own account");
+      return res.status(400).send("You can't delete your own account"); // Prevents Admin from deleting their own account
     }
 
     try {
@@ -358,6 +388,7 @@ app.post(
   })
 );
 
+// Route for toggling user account status, useful when users need to be temporarily disabled. Similar to the route for deleting users
 app.post(
   '/admin/toggle-user',
   requireLogin,
@@ -370,7 +401,7 @@ app.post(
     }
 
     if (req.session.user.id === parseInt(user_id)) {
-      return res.status(400).send("You can't change your own active status");
+      return res.status(400).send("You can't change your own active status"); // Prevents Admins from disabling their own account
     }
 
     try {
@@ -386,21 +417,24 @@ app.post(
   })
 );
 
+// Route to create a new user. This route requires Admin status to use
 app.post(
   '/register',
   requireLogin,
   requireAdmin,
   asyncHandler(async (req, res) => {
-    const { username, password, isLabUser } = req.body;
+    const { username, password, isLabUser } = req.body; // Check views/admin.ejs to see form. Allows Admin to set a default password for a new user
     const id = await registerUser(username, password, isLabUser);
     res.redirect('/admin');
   })
 );
 
+// Simply renders the login page. Users should always be directed here until they login
 app.get('/login', (req, res) => {
   res.render('login', { title: 'Log In' });
 });
 
+// Handles the login request
 app.post(
   '/login',
   asyncHandler(async (req, res) => {
@@ -408,9 +442,10 @@ app.post(
     const user = await loginUser(username, password);
 
     if (!user) {
-      return res.redirect('/login');
+      return res.redirect('/login'); // If the user does not exist or if the credentials are wrong, it will just redirect back to the login page. This can be enhanced by instead including either an alert popup or other indication
     }
 
+    // Sets the session up for the user. Keeps track of their user id, name, admin status, lab member status, and active status
     req.session.user = {
       id: user.id,
       username: user.username,
@@ -419,10 +454,11 @@ app.post(
       active: user.active
     };
 
-    res.redirect('/');
+    res.redirect('/'); // Redirects to default route which will then redirect based on if they are a lab member or not
   })
 );
 
+// Allows user to logout. Removes their session and clears their cookie
 app.post('/logout', (req, res) => {
   req.session.destroy(() => {
     res.clearCookie('connect.sid');
@@ -430,6 +466,9 @@ app.post('/logout', (req, res) => {
   });
 });
 
+// These next routes are specific to the chat room functionality of the web page. They allow for deleting chat room messages by an Admin in case a user sends an inappropriate message
+// These routes are not implemented fully and are not very user friendly, but are included as a way to avoid writing direct SQL queries.
+// First route is for clearing a specific room
 app.delete(
   '/chat/:room/clear',
   requireLogin,
@@ -441,6 +480,7 @@ app.delete(
   })
 );
 
+// This route is for completely removing all messages. Should only be used for testing purposes or in extreme cases
 app.delete(
   '/chat/clear',
   requireLogin,
@@ -452,6 +492,7 @@ app.delete(
 );
 
 // Socket.IO auth middleware
+// Probably the most confusing session unless experienced with web sockets.
 io.use((socket, next) => {
   const session = socket.handshake.session;
   if (session && session.user) {
@@ -462,13 +503,16 @@ io.use((socket, next) => {
   }
 });
 
+// This handles the socket connection, joining rooms, displaying message history, etc.
 io.on('connection', (socket) => {
+  // Joining a room
   socket.on('join_room', (room) => {
     if (!socket.user) return;
     socket.join(room);
     console.log(`${socket.user.username} joined room ${room}`);
   });
 
+  // Sending a message
   socket.on('send_message', async ({ room, message }) => {
     const { id: sender_id, username: display_name } = socket.user;
     const timestamp = new Date();
@@ -481,9 +525,11 @@ io.on('connection', (socket) => {
       timestamp,
     });
 
+    // Alerts other socket connections a message has been received so the other users can see it without refreshing the page
     io.to(room).emit('receive_message', { message, sender_id, display_name, timestamp });
   });
 
+  // Private messages are not implemented, but the original idea was to allow users to message each other directly. The chat feature never gets used, so it never got implemented
   socket.on('private_message', async ({ recipientId, message }) => {
     const { id: sender_id, username: display_name } = socket.user;
     const timestamp = new Date();
@@ -496,6 +542,7 @@ io.on('connection', (socket) => {
       timestamp,
     });
 
+    // Let's user know they got a private message. Again, this isn't implemented
     io.to(recipientId).emit('receive_private_message', {
       message,
       sender_id,
@@ -504,6 +551,7 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Retrieve message history for the room the user joins
   socket.on('get_history', async (room, callback) => {
     try {
       const messages = await chat_DB('messages')
@@ -518,11 +566,14 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Logs when a user disconnects. Only useful for backend devs or debugging purposes
   socket.on('disconnect', () => {
     console.log(`User disconnected: ${socket.id}`);
   });
 });
 
+// The next section of code deals with setting reminders and the Telegram bot behavior.
+// When a user sets up reminders, will do the math required to determine what the future time will be
 const now = () => new Date();
 const addTime = (date, type) => {
   let d = new Date(date);
@@ -535,8 +586,9 @@ const addTime = (date, type) => {
   return d;
 };
 
-const INTERVALS = ["48h", "7d", "3m", "1y"];
+const INTERVALS = ["48h", "7d", "3m", "1y"];  // The intervals that have been used. Can be changed if needed, but may have to change the section of code above too
 
+// Route for users to add task reminders. Since these are lab specific reminders, they must be a lab user to access this
 app.get("/reminders",
   requireLogin,
   requireLabUser,
@@ -544,22 +596,26 @@ app.get("/reminders",
   res.render('lab/reminders', { title: 'Reminders' });
 }));
 
+// Handles user submission for reminders. With how this is currently used, the user will enter a batch number only
 app.post("/reminders", async (req, res) => {
   const { batch } = req.body;
   if (!batch) return res.status(400).send("Missing batch number");
 
+  // Tracks current time and then makes tasks for each of the above intervals
   const createdAt = new Date().toISOString();
   const tasks = INTERVALS.map(interval => ({
-    id: `${batch}-${interval}`,
+    id: `${batch}-${interval}`, // This id should be unique. If batch numbers are likely to be repeated, this should be changed to something that is less likely to have conflicts
     batch,
     interval,
     due: addTime(createdAt, interval),
-    notified: false
+    notified: false // Used to check whether a notification has been sent out and if it is safe to delete
   }));
 
+  // Adds the new tasks to the old tasks. See functions a few sections down for more info
   const allTasks = readTasks();
   writeTasks([...allTasks, ...tasks]);
 
+  // Part of the Telegram bot functionality. Preps a message and tries to send it. Again, see sections below for function definition
   const message = `✅ Batch *${batch}* added!`;
   try {
     await sendTelegramMessage(message);
@@ -571,16 +627,20 @@ app.post("/reminders", async (req, res) => {
   res.redirect('lab/reminders', { title: 'Reminders' });
 });
 
+// This is the route that will update all the database, adding or updating QC and testing data. This route is mainly used as a way to click one button and run two Python scripts on the server machine.
+// Definitely not the best way to do this, but with how this setup was structured, the web server runs in a docker container while the Windows host machine, that uses a company login, has access to a shared drive.
+// If the main source of data was local or if users could be trusted to maintain this, there would be many better alternatives. This route was mainly for me so I didn't have to remote into the server and manually run the scripts.
 app.get('/update-database',
   requireLogin,
   requireAdmin,
   asyncHandler(async (req, res) => {
     try {
-      const response1 = await fetch('http://host.docker.internal:5001/run-scripts', { method: 'POST' });
+      const response1 = await fetch('http://host.docker.internal:5001/run-scripts', { method: 'POST' }); // Makes a call to a separate Flask web server that runs on the host machine directly
+      // The second server's whole purpose is to run two Python scripts on the host machine that each run an Excel macro to format data into a CSV file and then import the CSV data into MySQL
       const output1 = await response1.text();
-      cachedResults = null;
-      cachedQCResults = null;
-      res.send(output1);
+      cachedResults = null; // Resets the cachedResults in memory
+      cachedQCResults = null; // Resets the cachedQCResults in memory
+      res.send(output1); // Honestly, this is not worth sending, but it will provide the console of the Python scripts. Sometimes makes it seem like there was an error even if there wasn't
     } catch (err) {
       console.error('❌ Error calling host script:', err);
       res.status(500).send('Failed to run script on host');
@@ -588,6 +648,7 @@ app.get('/update-database',
   })
 );
 
+// The following functions are used for the Telegram bot to check which reminders have been sent and to add new ones. Also for sending the Telegram message
 function readTasks() {
   return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
 }
@@ -610,6 +671,7 @@ function addBatchTasks(batch) {
   writeTasks([...allTasks, ...newTasks]);
 }
 
+// Function that actually sends the Telegram message. Again, check example-config.js to see how the token and chat id should be formatted.
 async function sendTelegramMessage(text) {
   const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
   await fetch(url, {
@@ -619,6 +681,7 @@ async function sendTelegramMessage(text) {
   });
 }
 
+// Checks which reminders need to be sent out. Once it sends the alert, it will mark it as notified and eventually the reminder will get removed.
 async function checkDueTasks() {
   const tasks = readTasks();
   const nowTime = new Date();
@@ -637,6 +700,7 @@ async function checkDueTasks() {
   if (updated) writeTasks(tasks);
 }
 
+// Function that cleans up the tasks.json file so it doesn't become too large. The intervals can be changed
 function cleanupNotifiedEntries() {
   try {
     if (!fs.existsSync(DATA_FILE)) return;
@@ -654,6 +718,7 @@ function cleanupNotifiedEntries() {
   }
 }
 
+// If the bot receives a message, it will check to see if it is a batch number. If so, it will create the reminders automatically. Allows users to message the bot instead of using the web app directly
 bot.on('message', (msg) => {
   const chatId = msg.chat.id;
   const text = msg.text && msg.text.trim().toUpperCase();
@@ -664,10 +729,11 @@ bot.on('message', (msg) => {
   }
 });
 
+// On startup, checks which reminders need to be sent out, cleans up old ones, and then sets intervals to repeat those tasks
 checkDueTasks();
 cleanupNotifiedEntries();
-setInterval(cleanupNotifiedEntries, 7 * 24 * 60 * 60 * 1000);
-setInterval(checkDueTasks, 60 * 1000 * 30);
+setInterval(cleanupNotifiedEntries, 7 * 24 * 60 * 60 * 1000); // Once a week
+setInterval(checkDueTasks, 60 * 1000 * 30); // Every 30 minutes
 
 server.listen(3000, () => {
   console.log('Server running on http://localhost:3000');
