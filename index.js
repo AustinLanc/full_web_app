@@ -589,7 +589,7 @@ const addTime = (date, type) => {
 const INTERVALS = ["48h", "7d", "3m", "1y"];  // The intervals that have been used. Can be changed if needed, but may have to change the section of code above too
 
 // Route for users to add task reminders. Since these are lab specific reminders, they must be a lab user to access this
-app.get("/reminders",
+app.get('/reminders',
   requireLogin,
   requireLabUser,
   asyncHandler(async(req, res) => {
@@ -597,7 +597,7 @@ app.get("/reminders",
 }));
 
 // Handles user submission for reminders. With how this is currently used, the user will enter a batch number only
-app.post("/reminders", async (req, res) => {
+app.post('/reminders', async (req, res) => {
   const { batch } = req.body;
   if (!batch) return res.status(400).send("Missing batch number");
 
@@ -734,6 +734,127 @@ checkDueTasks();
 cleanupNotifiedEntries();
 setInterval(cleanupNotifiedEntries, 7 * 24 * 60 * 60 * 1000); // Once a week
 setInterval(checkDueTasks, 60 * 1000 * 30); // Every 30 minutes
+
+// These following routes are going to be for api calls. Might be useful for some applications
+// Get list of users
+app.get('/api/users',
+  requireLogin, 
+  requireAdmin, 
+  asyncHandler(async (req, res) => {
+    const users = await user_DB('users')
+      .select('id', 'username', 'active', 'is_lab', 'is_admin')
+      .orderBy('id');
+
+    if (!users) {
+      return res.status(404).json({ error: "No users found" });
+    }
+
+    res.json({data: users});
+}));
+
+// Get specific user information
+app.get('/api/users/:id',
+  requireLogin, 
+  requireAdmin, 
+  asyncHandler(async (req, res) => {
+    const userId = parseInt(req.params.id, 10);
+    if (isNaN(userId)) return res.status(400).json({ error: 'Invalid user ID' });
+    const user = await user_DB('users')
+      .select('id', 'username', 'active', 'is_lab', 'is_admin')
+      .where({ id: userId })
+      .first()
+
+    if (!user) {
+      return res.status(404).json({ error: "No user found" });
+    }
+
+    res.json({ data: user });
+}));
+
+// Get all retain information
+app.get('/api/retains',
+  asyncHandler(async (req, res) => {
+    const retains = await lab_DB('retains')
+      .join('names', 'retains.code', 'names.code')
+      .select('retains.*', 'names.name')
+      .orderByRaw('box, SUBSTRING(batch, 3, 4), SUBSTRING(batch, 1, 2)');
+
+    if (!retains) {
+      return res.status(404).json({ error: "No retains found" });
+    }
+
+    res.json({ data: retains });
+}));
+
+// Get specific retain information
+app.get('/api/retains/:batch',
+  asyncHandler(async (req, res) => {
+    const batch = req.params.batch;
+    const retain = await lab_DB('retains')
+      .join('names', 'retains.code', 'names.code')
+      .select('retains.*', 'names.name')
+      .where({ batch: batch })
+      .orderByRaw('box, SUBSTRING(batch, 3, 4), SUBSTRING(batch, 1, 2)');
+
+    if (!retain) {
+      return res.status(404).json({ error: "No retain found for batch" });
+    }
+
+    res.json({ data: retain });
+}));
+
+// Get all qc results
+app.get('/api/qc',
+  asyncHandler(async (req, res) => {
+    if (!cachedQCResults) {
+      try {
+        const fileData = await fsp.readFile(qcCacheFilePath, 'utf8');
+        cachedQCResults = JSON.parse(fileData);
+      } catch (err) {
+        console.log('No QC cache found on disk yet or error reading it.');
+      }
+    }
+
+    if (cachedQCResults && Array.isArray(cachedQCResults)) {
+      res.json({ data: cachedQCResults });
+    }
+
+    console.log('Querying database for QC logs');
+    const results = await lab_DB('qc')
+      .join('names', 'qc.code', 'names.code')
+      .select('qc.*', 'names.name')
+      .orderByRaw(
+        'SUBSTRING(batch, 3, 1) DESC, SUBSTRING(batch, 2, 1) DESC, SUBSTRING(batch, 4) DESC'
+      );
+    
+    cachedQCResults = results;
+    await fsp.writeFile(qcCacheFilePath, JSON.stringify(results), 'utf8');
+
+    if (!results) {
+      return res.status(404).json({ error: "No qc data found" });
+    }
+
+    res.json({ data: results});
+}));
+
+// Get specific qc results
+app.get('/api/qc/:batch',
+  asyncHandler(async (req, res) => {
+    const batch = req.params.batch;
+    const results = await lab_DB('qc')
+      .join('names', 'qc.code', 'names.code')
+      .select('qc.*', 'names.name')
+      .where({ batch: batch })
+      .orderByRaw(
+        'SUBSTRING(batch, 3, 1) DESC, SUBSTRING(batch, 2, 1) DESC, SUBSTRING(batch, 4) DESC'
+      );
+    
+    if (!results) {
+      return res.status(404).json({ error: "No qc data found for batch" });
+    }
+
+    res.json({ data: results});
+}));
 
 server.listen(3000, () => {
   console.log('Server running on http://localhost:3000');
