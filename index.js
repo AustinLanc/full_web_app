@@ -187,44 +187,57 @@ app.get(
   requireLogin,
   requireLabUser,
   asyncHandler(async (req, res) => {
-    // Checks if there is a cache copy already
     if (!cachedQCResults) {
-      // If not, tries to open a local copy of the data
       try {
-        const fileData = await fsp.readFile(qcCacheFilePath, 'utf8');
-        cachedQCResults = JSON.parse(fileData);
+        const stats = await fsp.stat(qcCacheFilePath);
+
+        const sevenDays = 7 * 24 * 60 * 60 * 1000; // Make sure last update less than 7 days old
+        const now = Date.now();
+
+        if (now - stats.mtimeMs <= sevenDays) {
+          // Use cached file
+          const fileData = await fsp.readFile(qcCacheFilePath, 'utf8');
+          cachedQCResults = JSON.parse(fileData);
+        } else {
+          // Query fresh data
+          let freshResults = await lab_DB('qc')
+            .join('names', 'qc.code', 'names.code')
+            .select('qc.*', 'names.name')
+            .orderByRaw(
+              'SUBSTRING(batch, 3, 1) DESC, SUBSTRING(batch, 2, 1) DESC, SUBSTRING(batch, 4) DESC' // Ordered so most recent on top
+            );
+
+          cachedQCResults = freshResults; // Sets the cached data to the fresh data
+
+          try { // Tries to save a local copy. Can take this part out if you only want caching in server memory
+            await fsp.writeFile(
+              qcCacheFilePath,
+              JSON.stringify(freshResults),
+              'utf8'
+            );
+          } catch (writeErr) {
+            console.error('Error writing QC cache file:', writeErr);
+          }
+        }
       } catch (err) {
         console.log('No QC cache found on disk yet or error reading it.');
       }
     }
 
-    // If there is cached results, uses it instead of making a new query.
     if (cachedQCResults && Array.isArray(cachedQCResults)) {
       return res.render('lab/qc', {
         qc: cachedQCResults,
         title: 'QC Logs',
       });
+    } else {
+      return res.render('lab/qc', {
+        qc: [],
+        title: 'QC Logs',
+      });
     }
-
-    // Will query if no cached results. Stores a local copy too incase server restarts. Not really necessary, but can be helpful for large data sets.
-    console.log('🔍 Querying database for QC logs');
-    const results = await lab_DB('qc')
-      .join('names', 'qc.code', 'names.code') // Separate database tables that pairs product codes to product names
-      .select('qc.*', 'names.name')
-      .orderByRaw(
-        'SUBSTRING(batch, 3, 1) DESC, SUBSTRING(batch, 2, 1) DESC, SUBSTRING(batch, 4) DESC' // Orders by year, month, batch (in form location code (A-Z), month code (A-L), last digit of year, batch. E.g NA5001)
-      );
-    
-    // Caches results so the above query only has to run about once a week or however often the database is actually updated
-    cachedQCResults = results;
-    await fsp.writeFile(qcCacheFilePath, JSON.stringify(results), 'utf8');
-
-    res.render('lab/qc', {
-      qc: results,
-      title: 'QC Logs',
-    });
   })
 );
+
 
 // Basically the same as with the qc data, just for testing data
 const cacheFilePath = path.join(__dirname, 'results.json');
@@ -238,8 +251,46 @@ app.get(
   asyncHandler(async (req, res) => {
     if (!cachedResults) {
       try {
-        const fileData = await fsp.readFile(cacheFilePath, 'utf8');
-        cachedResults = JSON.parse(fileData);
+        const stats = await fsp.stat(cacheFilePath);
+
+        const sevenDays = 7 * 24 * 60 * 60 * 1000;
+        const now = Date.now();
+
+        if (now - stats.mtimeMs <= sevenDays) {
+          // Use cached file
+          const fileData = await fsp.readFile(cacheFilePath, 'utf8');
+          cachedResults = JSON.parse(fileData);
+        } else {
+          let freshResults = await lab_DB('testing_data')
+            .join('names', 'testing_data.code', 'names.code')
+            .select('testing_data.*', 'names.name')
+            .orderByRaw(
+              'SUBSTRING(batch, 3, 1), SUBSTRING(batch, 2, 1), SUBSTRING(batch, 4), date DESC'
+            );
+
+          const formattedTesting = freshResults.map((test) => {
+            const d = new Date(test.date);
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            const yyyy = d.getFullYear();
+            return {
+              ...test,
+              formattedDate: `${mm}/${dd}/${yyyy}`,
+            };
+          });
+
+          cachedResults = formattedTesting;
+
+          try {
+            await fsp.writeFile(
+              cacheFilePath,
+              JSON.stringify(formattedTesting),
+              'utf8'
+            );
+          } catch (writeErr) {
+            console.error('Error writing cache file:', writeErr);
+          }
+        }
       } catch (err) {
         console.log('No cached results found on disk yet or error reading it.');
       }
@@ -250,31 +301,12 @@ app.get(
         testing: cachedResults,
         title: 'Results',
       });
+    } else {
+      return res.render('lab/results', {
+        testing: [],
+        title: 'Results',
+      });
     }
-
-    const results = await lab_DB('testing_data')
-      .join('names', 'testing_data.code', 'names.code')
-      .select('testing_data.*', 'names.name')
-      .orderByRaw('SUBSTRING(batch, 3, 1), SUBSTRING(batch, 2, 1), SUBSTRING(batch, 4), date DESC');
-
-    const formattedTesting = results.map((test) => {
-      const d = new Date(test.date);
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      const yyyy = d.getFullYear();
-      return {
-        ...test,
-        formattedDate: `${mm}/${dd}/${yyyy}`,
-      };
-    });
-
-    cachedResults = formattedTesting;
-    await fsp.writeFile(cacheFilePath, JSON.stringify(formattedTesting), 'utf8');
-
-    res.render('lab/results', {
-      testing: cachedResults,
-      title: 'Results',
-    });
   })
 );
 
@@ -635,18 +667,17 @@ app.get('/update-database',
   requireAdmin,
   asyncHandler(async (req, res) => {
     try {
+      cachedResults = null; // Resets the cachedResults in memory
+      cachedQCResults = null; // Resets the cachedQCResults in memory
       const response1 = await fetch('http://host.docker.internal:5001/run-scripts', { method: 'POST' }); // Makes a call to a separate Flask web server that runs on the host machine directly
       // The second server's whole purpose is to run two Python scripts on the host machine that each run an Excel macro to format data into a CSV file and then import the CSV data into MySQL
       const output1 = await response1.text();
-      cachedResults = null; // Resets the cachedResults in memory
-      cachedQCResults = null; // Resets the cachedQCResults in memory
       res.send(output1); // Honestly, this is not worth sending, but it will provide the console of the Python scripts. Sometimes makes it seem like there was an error even if there wasn't
     } catch (err) {
       console.error('❌ Error calling host script:', err);
       res.status(500).send('Failed to run script on host');
     }
-  })
-);
+}));
 
 // The following functions are used for the Telegram bot to check which reminders have been sent and to add new ones. Also for sending the Telegram message
 function readTasks() {
