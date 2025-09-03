@@ -633,8 +633,12 @@ app.post('/reminders', async (req, res) => {
   const { batch } = req.body;
   if (!batch) return res.status(400).send("Missing batch number");
 
-  // Tracks current time and then makes tasks for each of the above intervals
-  const createdAt = new Date().toISOString();
+  const cstNow = new Date();
+
+  cstNow.setHours(19, 0, 0, 0);
+
+  const createdAt = cstNow.toISOString();
+
   const tasks = INTERVALS.map(interval => ({
     id: `${batch}-${interval}`, // This id should be unique. If batch numbers are likely to be repeated, this should be changed to something that is less likely to have conflicts
     batch,
@@ -648,15 +652,15 @@ app.post('/reminders', async (req, res) => {
   writeTasks([...allTasks, ...tasks]);
 
   // Part of the Telegram bot functionality. Preps a message and tries to send it. Again, see sections below for function definition
-  const message = `✅ Batch *${batch}* added!`;
+  /* const message = `✅ Batch ${batch} added!`;
   try {
     await sendTelegramMessage(message);
   } catch (error) {
     console.error("Telegram message failed:", error);
     return res.status(500).send("Batch added, but failed to send Telegram message.");
-  }
+  } */
 
-  res.redirect('lab/reminders', { title: 'Reminders' });
+  res.render('lab/reminders', { title: 'Reminders' });
 });
 
 // This is the route that will update all the database, adding or updating QC and testing data. This route is mainly used as a way to click one button and run two Python scripts on the server machine.
@@ -689,7 +693,12 @@ function writeTasks(data) {
 }
 
 function addBatchTasks(batch) {
-  const createdAt = new Date().toISOString();
+  const cstNow = new Date();
+
+  cstNow.setHours(19, 0, 0, 0);
+
+  const createdAt = cstNow.toISOString();
+
   const newTasks = INTERVALS.map(interval => ({
     id: `${batch}-${interval}`,
     batch,
