@@ -82,6 +82,9 @@ io.use(sharedSession(sessionMiddleware, { autoSave: true }));
 const asyncHandler = (fn) => (req, res, next) =>
   Promise.resolve(fn(req, res, next)).catch(next);
 
+let cachedResults = null;
+let cachedQCResults = null;
+
 // First / default route. Ensures users start at the correct page (login, update, or chat)
 app.get(
   '/',
@@ -177,73 +180,35 @@ app.post(
   })
 );
 
-// These two lines are used to cache data to reduce redundant queries on stagnant data (data is only updated on the SQL server every so often in batches)
-const qcCacheFilePath = path.join(__dirname, 'qc.json');
-let cachedQCResults = null;
-
 // Route to show all QC data
 app.get(
   '/qc',
   requireLogin,
   requireLabUser,
   asyncHandler(async (req, res) => {
-    if (!cachedQCResults) {
+    if (!cachedQCResults) { // If there are no results already in memory or if they have been updated recently, will get fresh results
       try {
-        const stats = await fsp.stat(qcCacheFilePath);
+        let freshResults = await lab_DB('qc')
+          .join('names', 'qc.code', 'names.code') // Pairs product names with produce codes
+          .select('qc.*', 'names.name')
+          .orderByRaw(
+            'SUBSTRING(batch, 3, 1) DESC, SUBSTRING(batch, 2, 1) DESC, SUBSTRING(batch, 4) DESC' // Most recent on top
+          );
 
-        const sevenDays = 7 * 24 * 60 * 60 * 1000; // Make sure last update less than 7 days old
-        const now = Date.now();
-
-        if (now - stats.mtimeMs <= sevenDays) {
-          // Use cached file
-          const fileData = await fsp.readFile(qcCacheFilePath, 'utf8');
-          cachedQCResults = JSON.parse(fileData);
-        } else {
-          // Query fresh data
-          let freshResults = await lab_DB('qc')
-            .join('names', 'qc.code', 'names.code')
-            .select('qc.*', 'names.name')
-            .orderByRaw(
-              'SUBSTRING(batch, 3, 1) DESC, SUBSTRING(batch, 2, 1) DESC, SUBSTRING(batch, 4) DESC' // Ordered so most recent on top
-            );
-
-          cachedQCResults = freshResults; // Sets the cached data to the fresh data
-
-          try { // Tries to save a local copy. Can take this part out if you only want caching in server memory
-            await fsp.writeFile(
-              qcCacheFilePath,
-              JSON.stringify(freshResults),
-              'utf8'
-            );
-          } catch (writeErr) {
-            console.error('Error writing QC cache file:', writeErr);
-          }
-        }
+        cachedQCResults = freshResults; // Stores results in server memory
       } catch (err) {
-        console.log('No QC cache found on disk yet or error reading it.');
+        console.error('Error fetching fresh QC results:', err);
       }
     }
 
-    if (cachedQCResults && Array.isArray(cachedQCResults)) {
-      return res.render('lab/qc', {
-        qc: cachedQCResults,
-        title: 'QC Logs',
-      });
-    } else {
-      return res.render('lab/qc', {
-        qc: [],
-        title: 'QC Logs',
-      });
-    }
+    return res.render('lab/qc', {
+      qc: Array.isArray(cachedQCResults) ? cachedQCResults : [],
+      title: 'QC Logs',
+    });
   })
 );
 
-
-// Basically the same as with the qc data, just for testing data
-const cacheFilePath = path.join(__dirname, 'results.json');
-let cachedResults = null;
-
-// See /qc route for better understanding of this route. Functions essentially the same.
+// Route for testing data. See /qc route for better understanding of this route. Functions essentially the same.
 app.get(
   '/results',
   requireLogin,
@@ -251,64 +216,37 @@ app.get(
   asyncHandler(async (req, res) => {
     if (!cachedResults) {
       try {
-        const stats = await fsp.stat(cacheFilePath);
+        let freshResults = await lab_DB('testing_data')
+          .join('names', 'testing_data.code', 'names.code')
+          .select('testing_data.*', 'names.name')
+          .orderByRaw(
+            'SUBSTRING(batch, 3, 1), SUBSTRING(batch, 2, 1), SUBSTRING(batch, 4), date DESC'
+          );
 
-        const sevenDays = 7 * 24 * 60 * 60 * 1000;
-        const now = Date.now();
+        const formattedTesting = freshResults.map((test) => {
+          const d = new Date(test.date);
+          const mm = String(d.getMonth() + 1).padStart(2, '0');
+          const dd = String(d.getDate()).padStart(2, '0');
+          const yyyy = d.getFullYear();
+          return {
+            ...test,
+            formattedDate: `${mm}/${dd}/${yyyy}`,
+          };
+        });
 
-        if (now - stats.mtimeMs <= sevenDays) {
-          // Use cached file
-          const fileData = await fsp.readFile(cacheFilePath, 'utf8');
-          cachedResults = JSON.parse(fileData);
-        } else {
-          let freshResults = await lab_DB('testing_data')
-            .join('names', 'testing_data.code', 'names.code')
-            .select('testing_data.*', 'names.name')
-            .orderByRaw(
-              'SUBSTRING(batch, 3, 1), SUBSTRING(batch, 2, 1), SUBSTRING(batch, 4), date DESC'
-            );
-
-          const formattedTesting = freshResults.map((test) => {
-            const d = new Date(test.date);
-            const mm = String(d.getMonth() + 1).padStart(2, '0');
-            const dd = String(d.getDate()).padStart(2, '0');
-            const yyyy = d.getFullYear();
-            return {
-              ...test,
-              formattedDate: `${mm}/${dd}/${yyyy}`,
-            };
-          });
-
-          cachedResults = formattedTesting;
-
-          try {
-            await fsp.writeFile(
-              cacheFilePath,
-              JSON.stringify(formattedTesting),
-              'utf8'
-            );
-          } catch (writeErr) {
-            console.error('Error writing cache file:', writeErr);
-          }
-        }
+        cachedResults = formattedTesting;
       } catch (err) {
-        console.log('No cached results found on disk yet or error reading it.');
+        console.error('Error fetching fresh results:', err);
       }
     }
 
-    if (cachedResults && Array.isArray(cachedResults)) {
-      return res.render('lab/results', {
-        testing: cachedResults,
-        title: 'Results',
-      });
-    } else {
-      return res.render('lab/results', {
-        testing: [],
-        title: 'Results',
-      });
-    }
+    return res.render('lab/results', {
+      testing: Array.isArray(cachedResults) ? cachedResults : [],
+      title: 'Results',
+    });
   })
 );
+
 
 // Basic route to display a page that lists the shared drive directories the lab uses. Helpful for new employees or as a refresher. Will have to manually update this page if files and folders are moved or renamed
 app.get('/directory', (req, res) => {
@@ -666,22 +604,28 @@ app.post('/reminders', async (req, res) => {
 // This is the route that will update all the database, adding or updating QC and testing data. This route is mainly used as a way to click one button and run two Python scripts on the server machine.
 // Definitely not the best way to do this, but with how this setup was structured, the web server runs in a docker container while the Windows host machine, that uses a company login, has access to a shared drive.
 // If the main source of data was local or if users could be trusted to maintain this, there would be many better alternatives. This route was mainly for me so I didn't have to remote into the server and manually run the scripts.
-app.get('/update-database',
+app.get(
+  '/update-database',
   requireLogin,
   requireAdmin,
   asyncHandler(async (req, res) => {
     try {
       cachedResults = null; // Resets the cachedResults in memory
       cachedQCResults = null; // Resets the cachedQCResults in memory
-      const response1 = await fetch('http://host.docker.internal:5001/run-scripts', { method: 'POST' }); // Makes a call to a separate Flask web server that runs on the host machine directly
-      // The second server's whole purpose is to run two Python scripts on the host machine that each run an Excel macro to format data into a CSV file and then import the CSV data into MySQL
-      const output1 = await response1.text();
-      res.send(output1); // Honestly, this is not worth sending, but it will provide the console of the Python scripts. Sometimes makes it seem like there was an error even if there wasn't
+
+      // Sends request to run scripts. They take a while to run, making the client side time-out. The script logs are not really necessary so a simple confirmation that they have started is sufficient
+      fetch('http://host.docker.internal:5001/run-scripts', { method: 'POST' })
+        .then(() => console.log('Host script initialization triggered'))
+        .catch(err => console.error('Error triggering host script:', err));
+
+      res.send('Scripts have been initialized.');
     } catch (err) {
-      console.error('❌ Error calling host script:', err);
-      res.status(500).send('Failed to run script on host');
+      console.error('Error calling host script:', err);
+      res.status(500).send('Failed to initialize scripts on host');
     }
-}));
+  })
+);
+
 
 // The following functions are used for the Telegram bot to check which reminders have been sent and to add new ones. Also for sending the Telegram message
 function readTasks() {
