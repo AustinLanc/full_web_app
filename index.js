@@ -790,14 +790,6 @@ app.get('/api/retains/:batch',
 // Get all qc results
 app.get('/api/qc',
   asyncHandler(async (req, res) => {
-    if (!cachedQCResults) {
-      try {
-        const fileData = await fsp.readFile(qcCacheFilePath, 'utf8');
-        cachedQCResults = JSON.parse(fileData);
-      } catch (err) {
-        console.log('No QC cache found on disk yet or error reading it.');
-      }
-    }
 
     if (cachedQCResults && Array.isArray(cachedQCResults)) {
       res.json({ data: cachedQCResults });
@@ -812,7 +804,6 @@ app.get('/api/qc',
       );
     
     cachedQCResults = results;
-    await fsp.writeFile(qcCacheFilePath, JSON.stringify(results), 'utf8');
 
     if (!results) {
       return res.status(404).json({ error: "No qc data found" });
@@ -835,6 +826,50 @@ app.get('/api/qc/:batch',
     
     if (!results) {
       return res.status(404).json({ error: "No qc data found for batch" });
+    }
+
+    res.json({ data: results});
+}));
+
+// Get all testing results
+app.get('/api/testing',
+  asyncHandler(async (req, res) => {
+
+    if (cachedResults && Array.isArray(cachedResults)) {
+      res.json({ data: cachedResults });
+    }
+
+    console.log('Querying database for testing logs');
+    const results = await lab_DB('testing_data')
+      .join('names', 'testing_data.code', 'names.code')
+      .select('testing_data.*', 'names.name')
+      .orderByRaw(
+        'SUBSTRING(batch, 3, 1), SUBSTRING(batch, 2, 1), SUBSTRING(batch, 4), date DESC'
+      );
+    
+    cachedResults = results;
+
+    if (!results) {
+      return res.status(404).json({ error: "No testing data found" });
+    }
+
+    res.json({ data: results});
+}));
+
+// Get specific testing results
+app.get('/api/testing/:batch',
+  asyncHandler(async (req, res) => {
+    const batch = req.params.batch;
+    const results = await lab_DB('testing_data')
+      .join('names', 'testing_data.code', 'names.code')
+      .select('testing_data.*', 'names.name')
+      .where({ batch: batch })
+      .orderByRaw(
+        'SUBSTRING(batch, 3, 1), SUBSTRING(batch, 2, 1), SUBSTRING(batch, 4), date DESC'
+      );
+    
+    if (!results) {
+      return res.status(404).json({ error: "No testing data found for batch" });
     }
 
     res.json({ data: results});
