@@ -1,0 +1,78 @@
+<% layout('layout') %>
+
+<div class="container mt-5">
+  <div class="card shadow border-0 rounded-3">
+    <div class="card-header bg-white border-bottom">
+      <h3 class="text-center mb-0 text-dark fw-semibold">Active Tests</h3>
+    </div>
+    <div class="card-body bg-light">
+      <div class="row mb-4 align-items-center">
+        <div class="col-md-12">
+          <form class="row g-3 align-items-center" action="/tests" method="POST">
+            
+            <!-- Batch number -->
+            <div class="col-md-3">
+              <input type="text" class="form-control" id="batch" name="batch" placeholder="Batch Number" required>
+            </div>
+
+            <!-- Test type dropdown -->
+            <div class="col-md-3">
+              <select class="form-select" id="test" name="test" required>
+                <option value="" disabled selected>Select a test</option>
+                <option value="copper-corrosion">Copper Corrosion</option>
+                <option value="oil-bleed">Oil Bleed</option>
+                <option value="oxidation">Oxidation</option>
+                <option value="rust">Rust</option>
+              </select>
+            </div>
+
+            <!-- Duration -->
+            <div class="col-md-3">
+              <input type="number" class="form-control" id="duration" name="duration" min="1" placeholder="Duration (hours)" required>
+            </div>
+
+            <!-- Submit button -->
+            <div class="col-md-3 d-flex align-items-end">
+              <button class="btn btn-dark" type="submit">
+                <i class="fas fa-plus-circle me-2"></i>Add Test
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="table-responsive" style="max-height: 60vh; overflow-y: auto;">
+        <table class="table table-hover align-middle" id="inventoryTable">
+          <thead class="table-light sticky-top">
+            <tr>
+              <th>Batch</th>
+              <th>Test</th>
+              <th>Due</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% for (let test of tests) { %>
+              <tr>
+                <td><%= test.batch %></td>
+                <td><%= test.displayName %></td>
+                <td><%= test.dueFormatted %></td>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+    @media (max-width: 767px) {
+        .table-responsive {
+            font-size: 0.9rem;
+        }
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.8rem;
+        }
+    }
+</style>

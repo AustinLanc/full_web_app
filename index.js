@@ -17,6 +17,7 @@ const TelegramBot = require('node-telegram-bot-api');
 const { TELEGRAM_TOKEN, CHAT_ID } = require("./config"); // This file contains the Telegram token and chat id required for the bot to send and receive messages. Check example-config.js for format
 const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
 const DATA_FILE = path.join(__dirname, "tasks.json"); // This file stores all the retain checks for the future. Later code removes old ones that have passed.
+const TEST_DATA_FILE = path.join(__dirname, "tests.json"); // Stores active tests
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'; // For production, this line should be removed and HTTPs should be set up
 // These are user defined functions that pertain to user account handling. Helps keep this main file cleaner.
 const {
@@ -246,7 +247,6 @@ app.get(
     });
   })
 );
-
 
 // Basic route to display a page that lists the shared drive directories the lab uses. Helpful for new employees or as a refresher. Will have to manually update this page if files and folders are moved or renamed
 app.get('/directory', (req, res) => {
@@ -544,7 +544,6 @@ io.on('connection', (socket) => {
 
 // The next section of code deals with setting reminders and the Telegram bot behavior.
 // When a user sets up reminders, will do the math required to determine what the future time will be
-const now = () => new Date();
 const addTime = (date, type) => {
   let d = new Date(date);
   switch (type) {
@@ -552,6 +551,10 @@ const addTime = (date, type) => {
     case "7d": d.setDate(d.getDate() + 7); break;
     case "3m": d.setMonth(d.getMonth() + 3); break;
     case "1y": d.setFullYear(d.getFullYear() + 1); break;
+    default: 
+      const hours = Number(type);
+      if (!isNaN(hours)) d.setHours(d.getHours() + hours);
+      break;
   }
   return d;
 };
@@ -586,19 +589,77 @@ app.post('/reminders', async (req, res) => {
   }));
 
   // Adds the new tasks to the old tasks. See functions a few sections down for more info
-  const allTasks = readTasks();
-  writeTasks([...allTasks, ...tasks]);
+  const allTasks = readTasks(DATA_FILE);
+  writeTasks(DATA_FILE, [...allTasks, ...tasks]);
 
   // Part of the Telegram bot functionality. Preps a message and tries to send it. Again, see sections below for function definition
-  /* const message = `✅ Batch ${batch} added!`;
+  const message = `✅ Batch ${batch} added!`;
   try {
     await sendTelegramMessage(message);
   } catch (error) {
     console.error("Telegram message failed:", error);
     return res.status(500).send("Batch added, but failed to send Telegram message.");
-  } */
+  }
 
   res.render('lab/reminders', { title: 'Reminders' });
+});
+
+app.get('/tests',
+  requireLogin,
+  requireLabUser,
+  asyncHandler(async (req, res) => {
+    const testNameMap = {
+      "copper-corrosion": "Copper Corrosion",
+      "oil-bleed": "Oil Bleed",
+      "oxidation": "Oxidation",
+      "rust": "Rust"
+    };
+
+    const toCSTDateTimeString = (utcDate) => {
+      return new Date(utcDate)
+        .toLocaleString("en-US", {
+          timeZone: "America/Chicago",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: true
+        });
+    };
+
+    const tests = readTasks(TEST_DATA_FILE).map(t => ({
+      ...t,
+      displayName: testNameMap[t.test] || t.test,
+      dueFormatted: t.due ? toCSTDateTimeString(new Date(t.due)) : ""
+    }));
+
+    res.render('lab/tests', { title: 'Active Tests', tests });
+  })
+);
+
+app.post('/tests', async (req, res) => {
+  const { batch, test, duration } = req.body;
+  if (!batch) return res.status(400).send("Missing batch number");
+  if (!test) return res.status(400).send("Missing test");
+  if (!duration) return res.status(400).send("No duration");
+
+  const now = new Date();
+  const due = addTime(now, duration);
+
+  const newTask = {
+    id: `${batch}-${test}`,
+    batch,
+    test,
+    due: due.toISOString(),
+    notified: false
+  };
+
+  const allTestTasks = readTasks(TEST_DATA_FILE);
+  writeTasks(TEST_DATA_FILE, [...allTestTasks, newTask]);
+
+  res.redirect('/tests');
 });
 
 // This is the route that will update all the database, adding or updating QC and testing data. This route is mainly used as a way to click one button and run two Python scripts on the server machine.
@@ -626,14 +687,13 @@ app.get(
   })
 );
 
-
 // The following functions are used for the Telegram bot to check which reminders have been sent and to add new ones. Also for sending the Telegram message
-function readTasks() {
-  return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+function readTasks(file) {
+  return JSON.parse(fs.readFileSync(file, "utf8"));
 }
 
-function writeTasks(data) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+function writeTasks(file, data) {
+  fs.writeFileSync(file, JSON.stringify(data, null, 2));
 }
 
 function addBatchTasks(batch) {
@@ -651,8 +711,8 @@ function addBatchTasks(batch) {
     notified: false
   }));
 
-  const allTasks = readTasks();
-  writeTasks([...allTasks, ...newTasks]);
+  const allTasks = readTasks(DATA_FILE);
+  writeTasks(DATA_FILE, [...allTasks, ...newTasks]);
 }
 
 // Function that actually sends the Telegram message. Again, check example-config.js to see how the token and chat id should be formatted.
@@ -666,8 +726,8 @@ async function sendTelegramMessage(text) {
 }
 
 // Checks which reminders need to be sent out. Once it sends the alert, it will mark it as notified and eventually the reminder will get removed.
-async function checkDueTasks() {
-  const tasks = readTasks();
+async function checkDueTasks(file) {
+  const tasks = readTasks(file);
   const nowTime = new Date();
 
   let updated = false;
@@ -681,20 +741,20 @@ async function checkDueTasks() {
     }
   }
 
-  if (updated) writeTasks(tasks);
+  if (updated) writeTasks(file, tasks);
 }
 
 // Function that cleans up the tasks.json file so it doesn't become too large. The intervals can be changed
-function cleanupNotifiedEntries() {
+function cleanupNotifiedEntries(file) {
   try {
-    if (!fs.existsSync(DATA_FILE)) return;
+    if (!fs.existsSync(file)) return;
 
-    const data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+    const data = JSON.parse(fs.readFileSync(file, 'utf8'));
     const cleaned = data.filter(entry => !entry.notified);
 
     // Only write if changes were made
     if (cleaned.length !== data.length) {
-      fs.writeFileSync(DATA_FILE, JSON.stringify(cleaned, null, 2), 'utf8');
+      fs.writeFileSync(file, JSON.stringify(cleaned, null, 2), 'utf8');
       console.log(`[${new Date().toISOString()}] Cleaned up ${data.length - cleaned.length} notified entries.`);
     }
   } catch (err) {
@@ -714,10 +774,14 @@ bot.on('message', (msg) => {
 });
 
 // On startup, checks which reminders need to be sent out, cleans up old ones, and then sets intervals to repeat those tasks
-checkDueTasks();
-cleanupNotifiedEntries();
-setInterval(cleanupNotifiedEntries, 7 * 24 * 60 * 60 * 1000); // Once a week
-setInterval(checkDueTasks, 60 * 1000 * 30); // Every 30 minutes
+checkDueTasks(DATA_FILE);
+checkDueTasks(TEST_DATA_FILE);
+cleanupNotifiedEntries(DATA_FILE);
+cleanupNotifiedEntries(TEST_DATA_FILE);
+setInterval(() => cleanupNotifiedEntries(DATA_FILE), 7 * 24 * 60 * 60 * 1000); // Once a week
+setInterval(() => cleanupNotifiedEntries(TEST_DATA_FILE), 24 * 60 * 60 * 1000); // Once a day
+setInterval(() => checkDueTasks(DATA_FILE), 60 * 1000 * 30); // Every 30 minutes
+setInterval(() => checkDueTasks(TEST_DATA_FILE), 60 * 1000 * 30); // Every 30 minutes
 
 // These following routes are going to be for api calls. Might be useful for some applications
 // Get list of users
@@ -878,9 +942,9 @@ app.get('/api/testing/:batch',
 // Get all reminders
 app.get('/api/reminders',
   asyncHandler(async (req, res) => {
-    const results = readTasks();
+    const results = readTasks(DATA_FILE);
     if (!results) {
-      return res.status(404).json({ error: "No reminders data found" });
+      return res.status(404).json({ error: "No reminders found" });
     }
 
     res.json({ data: results});
@@ -890,7 +954,7 @@ app.get('/api/reminders',
 app.get('/api/reminders/:batch',
   asyncHandler(async (req, res) => {
     const batch = req.params.batch;
-    const allResults = readTasks();
+    const allResults = readTasks(DATA_FILE);
     const results =  allResults.filter(result => result.batch === batch);
 
     if (!results) {
@@ -899,6 +963,7 @@ app.get('/api/reminders/:batch',
 
     res.json({ data: results});
 }));
+
 server.listen(3000, () => {
   console.log('Server running on http://localhost:3000');
 });
