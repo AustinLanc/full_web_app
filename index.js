@@ -875,6 +875,30 @@ app.get('/api/testing/:batch',
     res.json({ data: results});
 }));
 
+// Get all reminders
+app.get('/api/reminders',
+  asyncHandler(async (req, res) => {
+    const results = readTasks();
+    if (!results) {
+      return res.status(404).json({ error: "No reminders data found" });
+    }
+
+    res.json({ data: results});
+}));
+
+// Get specific reminders
+app.get('/api/reminders/:batch',
+  asyncHandler(async (req, res) => {
+    const batch = req.params.batch;
+    const allResults = readTasks();
+    const results =  allResults.filter(result => result.batch === batch);
+
+    if (!results) {
+      return res.status(404).json({ error: "No reminders found" });
+    }
+
+    res.json({ data: results});
+}));
 server.listen(3000, () => {
   console.log('Server running on http://localhost:3000');
 });
