@@ -964,6 +964,31 @@ app.get('/api/reminders/:batch',
     res.json({ data: results});
 }));
 
+// Get all test reminders
+app.get('/api/tests',
+  asyncHandler(async (req, res) => {
+    const results = readTasks(TEST_DATA_FILE);
+    if (!results) {
+      return res.status(404).json({ error: "No test reminders found" });
+    }
+
+    res.json({ data: results});
+}));
+
+// Get specific test reminders
+app.get('/api/tests/:batch',
+  asyncHandler(async (req, res) => {
+    const batch = req.params.batch;
+    const allResults = readTasks(TEST_DATA_FILE);
+    const results =  allResults.filter(result => result.batch === batch);
+
+    if (!results) {
+      return res.status(404).json({ error: "No test reminders found" });
+    }
+
+    res.json({ data: results});
+}));
+
 server.listen(3000, () => {
   console.log('Server running on http://localhost:3000');
 });
