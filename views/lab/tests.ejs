@@ -11,28 +11,29 @@
           <form class="row g-3 align-items-center" action="/tests" method="POST">
             
             <!-- Batch number -->
-            <div class="col-md-3">
+            <div class="col-md-4">
               <input type="text" class="form-control" id="batch" name="batch" placeholder="Batch Number" required>
             </div>
 
             <!-- Test type dropdown -->
-            <div class="col-md-3">
+            <div class="col-md-4">
               <select class="form-select" id="test" name="test" required>
                 <option value="" disabled selected>Select a test</option>
                 <option value="copper-corrosion">Copper Corrosion</option>
-                <option value="oil-bleed">Oil Bleed</option>
+                <option value="oil-bleed-24">Oil Bleed (24 hrs)</option>
+                <option value="oil-bleed-30">Oil Bleed (30 hrs)</option>
                 <option value="oxidation">Oxidation</option>
+                <option value="pressure-bleed">Pressure Bleed</option>
                 <option value="rust">Rust</option>
+                <option value="rust-seawater">Rust (Synthetic Seawater)</option>
+                <option value="salt-fog">Salt Fog</option>
+                <option value="soak">Soak Test</option>
+                <option value="water-washout">Water Washout</option>
               </select>
             </div>
 
-            <!-- Duration -->
-            <div class="col-md-3">
-              <input type="number" class="form-control" id="duration" name="duration" min="1" placeholder="Duration (hours)" required>
-            </div>
-
             <!-- Submit button -->
-            <div class="col-md-3 d-flex align-items-end">
+            <div class="col-md-4 d-flex align-items-end">
               <button class="btn btn-dark" type="submit">
                 <i class="fas fa-plus-circle me-2"></i>Add Test
               </button>

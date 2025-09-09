@@ -610,9 +610,15 @@ app.get('/tests',
   asyncHandler(async (req, res) => {
     const testNameMap = {
       "copper-corrosion": "Copper Corrosion",
-      "oil-bleed": "Oil Bleed",
+      "oil-bleed-24": "Oil Bleed (24 hrs)",
+      "oil-bleed-30": "Oil Bleed (30 hrs)",
       "oxidation": "Oxidation",
-      "rust": "Rust"
+      "pressure-bleed": "Pressure Bleed",
+      "rust": "Rust",
+      "rust-seawater": "Rust (Synthetic Seawater)",
+      "salt-fog": "Salt Fog",
+      "soak": "Soak Test",
+      "water-washout": "Water Washout",
     };
 
     const toCSTDateTimeString = (utcDate) => {
@@ -640,12 +646,26 @@ app.get('/tests',
 );
 
 app.post('/tests', async (req, res) => {
-  const { batch, test, duration } = req.body;
+  const { batch, test} = req.body;
   if (!batch) return res.status(400).send("Missing batch number");
   if (!test) return res.status(400).send("Missing test");
-  if (!duration) return res.status(400).send("No duration");
+
+  const testDurationMap = {
+    "copper-corrosion": 24,
+    "oil-bleed-24": 24,
+    "oil-bleed-30": 30,
+    "oxidation": 100,
+    "pressure-bleed": 24,
+    "rust": 48,
+    "rust-seawater": 24,
+    "salt-fog": 1000,
+    "soak": 720,
+    "water-washout": 15,
+  };
 
   const now = new Date();
+  const duration = testDurationMap[test] ?? 24;
+
   const due = addTime(now, duration);
 
   const newTask = {
