@@ -1,6 +1,7 @@
 .env
 config.js
 tasks.json
+tests.json
 test-telegram.mjs
 qc.json
 results.json

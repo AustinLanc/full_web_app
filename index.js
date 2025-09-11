@@ -962,7 +962,8 @@ app.get('/api/testing/:batch',
 // Get all reminders
 app.get('/api/reminders',
   asyncHandler(async (req, res) => {
-    const results = readTasks(DATA_FILE);
+    const results = readTasks(DATA_FILE)
+      .sort((a, b) => new Date(a.due) - new Date(b.due));
     if (!results) {
       return res.status(404).json({ error: "No reminders found" });
     }
@@ -975,7 +976,9 @@ app.get('/api/reminders/:batch',
   asyncHandler(async (req, res) => {
     const batch = req.params.batch;
     const allResults = readTasks(DATA_FILE);
-    const results =  allResults.filter(result => result.batch === batch);
+    const results = allResults
+      .filter(result => result.batch === batch)
+      .sort((a, b) => new Date(a.due) - new Date(b.due));
 
     if (!results) {
       return res.status(404).json({ error: "No reminders found" });
