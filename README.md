@@ -22,7 +22,10 @@ Before running the application, a few setup steps are required. Please follow th
 3. **`blank-tasks.json`**  
   - If using the Telegram bot, rename to `tasks.json`
 
-4. **`static/icon.ico` and `static/logo.png`**  
+4. **`blank-tests.json`**  
+  - Used to store active tests. Rename to `tests.json`
+
+5. **`static/icon.ico` and `static/logo.png`**  
   - Replace these with your organization's icons and logos
 
 ---
