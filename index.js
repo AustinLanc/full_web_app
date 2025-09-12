@@ -793,6 +793,47 @@ bot.on('message', (msg) => {
   }
 });
 
+async function updateQcCache() {
+  try {
+    let freshResults = await lab_DB('qc')
+      .join('names', 'qc.code', 'names.code') // Pairs product names with produce codes
+      .select('qc.*', 'names.name')
+      .orderByRaw(
+        'SUBSTRING(batch, 3, 1) DESC, SUBSTRING(batch, 2, 1) DESC, SUBSTRING(batch, 4) DESC' // Most recent on top
+      );
+
+    cachedQCResults = freshResults; // Stores results in server memory
+  } catch (err) {
+    console.error('Error fetching fresh QC results:', err);
+  }
+}
+
+async function updateTestingCache() {
+  try {
+    let freshResults = await lab_DB('testing_data')
+      .join('names', 'testing_data.code', 'names.code')
+      .select('testing_data.*', 'names.name')
+      .orderByRaw(
+        'SUBSTRING(batch, 3, 1), SUBSTRING(batch, 2, 1), SUBSTRING(batch, 4), date DESC'
+      );
+
+    const formattedTesting = freshResults.map((test) => {
+      const d = new Date(test.date);
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      return {
+        ...test,
+        formattedDate: `${mm}/${dd}/${yyyy}`,
+      };
+    });
+
+    cachedResults = formattedTesting;
+  } catch (err) {
+    console.error('Error fetching fresh results:', err);
+  }
+}
+
 // On startup, checks which reminders need to be sent out, cleans up old ones, and then sets intervals to repeat those tasks
 checkDueTasks(DATA_FILE);
 checkDueTasks(TEST_DATA_FILE);
@@ -802,6 +843,10 @@ setInterval(() => cleanupNotifiedEntries(DATA_FILE), 7 * 24 * 60 * 60 * 1000); /
 setInterval(() => cleanupNotifiedEntries(TEST_DATA_FILE), 24 * 60 * 60 * 1000); // Once a day
 setInterval(() => checkDueTasks(DATA_FILE), 60 * 1000 * 30); // Every 30 minutes
 setInterval(() => checkDueTasks(TEST_DATA_FILE), 60 * 1000 * 30); // Every 30 minutes
+
+// To account for the change that either the QC or results page gets reloaded while the database is being updated, these will auto refresh every 10 minutes
+setInterval(() => updateQcCache(), 10 * 60 * 1000) // Every 10 minutes updates QC cache
+setInterval(() => updateTestingCache(), 10 * 60 * 1000) // Every 10 minutes updates testing cache
 
 // These following routes are going to be for api calls. Might be useful for some applications
 // Get list of users
