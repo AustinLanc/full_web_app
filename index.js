@@ -839,7 +839,7 @@ checkDueTasks(DATA_FILE);
 checkDueTasks(TEST_DATA_FILE);
 cleanupNotifiedEntries(DATA_FILE);
 cleanupNotifiedEntries(TEST_DATA_FILE);
-setInterval(() => cleanupNotifiedEntries(DATA_FILE), 7 * 24 * 60 * 60 * 1000); // Once a week
+setInterval(() => cleanupNotifiedEntries(DATA_FILE), 24 * 60 * 60 * 1000); // Once a day
 setInterval(() => cleanupNotifiedEntries(TEST_DATA_FILE), 24 * 60 * 60 * 1000); // Once a day
 setInterval(() => checkDueTasks(DATA_FILE), 60 * 1000 * 30); // Every 30 minutes
 setInterval(() => checkDueTasks(TEST_DATA_FILE), 60 * 1000 * 30); // Every 30 minutes
